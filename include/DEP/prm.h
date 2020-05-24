@@ -5,9 +5,9 @@
 #include <visualization_msgs/Marker.h>
 
 // Define Drone Size:
-double DRONE_X = 0.4;
-double DRONE_Y = 0.4;
-double DRONE_Z = 0.0;
+double DRONE_X = 0.5;
+double DRONE_Y = 0.5;
+double DRONE_Z = 0.2;
 
 // MAP RESOLUTION:
 double RES = 0.1;
@@ -21,6 +21,8 @@ double dmax = 1.0;
 bool VISUALIZE_MAP = true;
 // static std::vector<geometry_msgs::Point> DEFAULT_VECTOR;
 static std::vector<visualization_msgs::Marker> DEFAULT_VECTOR;
+
+std::vector<double> yaws {0, pi/4, pi/2, 3*pi/4, pi, 5*pi/4, 3*pi/2, 7*pi/4};
 
 // Random Generator
 std::random_device rd;
@@ -114,7 +116,7 @@ bool checkCollision(OcTree& tree, Node* n1, Node* n2){
 	return false;
 }
 
-int calculateUnknown(const OcTree& tree, Node* n){
+std::map<double, int> calculateUnknown(const OcTree& tree, Node* n){
 	// Position:
 	point3d p = n->p;
 	// Possible range
@@ -131,8 +133,14 @@ int calculateUnknown(const OcTree& tree, Node* n){
 	point3d pmax (xmax, ymax, zmax);
 	point3d_list node_centers;
 	tree.getUnknownLeafCenters(node_centers, pmin, pmax);
-	// cout << "Max horizontal Angle: " << horizontal_max_angle << endl;
-	// cout << "Max Vertical Angle: " << vertical_max_angle << endl;
+
+	// Yaw candicates array;
+	
+	std::map<double, int> yaw_num_voxels;
+	for (double yaw: yaws){
+		yaw_num_voxels[yaw] = 0;
+	}
+
 	int count = 0;
 	int jump_factor = 1;
 	int jump_count = 0;
@@ -150,13 +158,7 @@ int calculateUnknown(const OcTree& tree, Node* n){
 			if (distance >= dmin and distance <= dmax){
 				point3d direction = u - p;
 				point3d face (direction.x(), direction.y(), 0);
-				// divide the direction into horizontal and vertical
-				// horizontal
-				// point3d h_direction = direction;
-				// h_direction.z() = 0;
-				// double horizontal_angle = face.angleTo(h_direction);
-				
-				// vertical 
+
 
 				point3d v_direction = direction;
 				double vertical_angle = face.angleTo(v_direction);
@@ -166,10 +168,18 @@ int calculateUnknown(const OcTree& tree, Node* n){
 					bool cast = tree.castRay(p, direction, end, true, distance);
 					if (cast == false){
 						++count;
+						// iterate through yaw angles
+						for (double yaw: yaws){
+							point3d yaw_direction (cos(yaw), sin(yaw), 0);
+							double angle_to_yaw = face.angleTo(yaw_direction);
+							if (angle_to_yaw <= FOV/2){
+								yaw_num_voxels[yaw] += 1;
+							}
+						}
 					}
 				}
 
-				// if (abs(horizontal_angle) < horizontal_max_angle and abs(vertical_angle) < vertical_max_angle){
+				// if (abs(horizawontal_angle) < horizontal_max_angle and abs(vertical_angle) < vertical_max_angle){
 				// double angle = face.angleTo(direction);
 				// if (angle <= FOV/2){
 				// 	point3d end;
@@ -184,7 +194,7 @@ int calculateUnknown(const OcTree& tree, Node* n){
 		}
 	}
 
-	return count;
+	return yaw_num_voxels;
 }
 
 PRM* buildRoadMap(OcTree &tree, 
@@ -193,7 +203,7 @@ PRM* buildRoadMap(OcTree &tree,
 {
 	PRM* map = new PRM ();
 	std::vector<Node*> record_nodes;
-	double threshold = 1000; // HardCode threshold
+	double threshold = 500; // HardCode threshold
 	for (int i=0; i<num_sample; ++i){
 		Node* n = randomConfig(tree);
 		map->insert(n);
@@ -218,7 +228,19 @@ PRM* buildRoadMap(OcTree &tree,
 				nearest_neighbor->adjNodes.insert(n); 
 			}
 		}
-		n->num_voxels = calculateUnknown(tree, n);
+		std::map<double, int> yaw_num_voxels = calculateUnknown(tree, n);
+		double best_yaw;
+		double best_num_voxels = 0;
+		for (double yaw: yaws){
+			double num_voxels = yaw_num_voxels[yaw];
+			if (num_voxels > best_num_voxels){
+				best_num_voxels = num_voxels;
+				best_yaw = yaw;
+			}
+		}
+		n->yaw = best_yaw;
+		n->num_voxels = best_num_voxels;
+
 		if (n->num_voxels > threshold){
 			map->addGoalNode(n);
 		}
@@ -264,7 +286,9 @@ PRM* buildRoadMap(OcTree &tree,
 			// unknown_voxel_vis_marker.color.g = 0.0;
 			// unknown_voxel_vis_marker.color.b = 0.0;
 			int num = (int) n->num_voxels;
-			unknown_voxel_vis_marker.text = std::to_string(num);
+			int vis_angle =  n->yaw * 180/pi;
+			std::string sep = ", ";
+			unknown_voxel_vis_marker.text = std::to_string(num) + sep + std::to_string(vis_angle);
 			++unknown_voxel_id;
 			map_vis_array.push_back(node_point_vis_marker);
 			map_vis_array.push_back(unknown_voxel_vis_marker);

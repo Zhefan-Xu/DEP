@@ -10,6 +10,7 @@ using std::cout; using std::endl;
 // =====================RRT/KDTree NODE=================================
 typedef struct Node{
 	point3d p; // (x, y, z) see octomath::vector3
+	double yaw; //radius for best yaw angle
 	double num_voxels;
 	struct Node* left;   // kd-tree left
 	struct Node* right;  // kd-tree right

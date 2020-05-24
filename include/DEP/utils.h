@@ -36,7 +36,7 @@ void print_point3d_vector(vector<point3d> p){
 void print_node(Node n){
 	cout << "+-----------Node Info----------+" << endl;
 	print_point3d(n.p);
-	// cout << " yaw: " << n.yaw << "                    "<<  endl;
+	cout << " yaw: " << n.yaw << "                    "<<  endl;
 	cout << " voxels: " << n.num_voxels << "             " << endl;
 	cout << "+------------------------------+" << endl;
 }
