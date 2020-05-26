@@ -51,3 +51,13 @@ void print_node_vector(std::vector<Node*> path){
 
 	cout << "=========>END<==========" << endl;
 }
+
+void print_path(std::vector<Node> path){
+	cout << "=========>Path<========" << endl;
+	for (std::vector<Node>::iterator itr=path.begin();
+			itr != path.end(); ++itr){
+		print_node((*itr));
+	}
+
+	cout << "=========>END<==========" << endl;
+}

@@ -21,6 +21,7 @@ ros::Publisher goal_pub;
 
 AbstractOcTree* abtree;
 OcTree* tree_ptr;
+PRM* roadmap;
 bool new_plan = true;
 // int num_sample = 100;
 double linear_velocity = 0.2;
@@ -37,6 +38,7 @@ bool isReach(const nav_msgs::OdometryConstPtr& odom, DEP::Goal next_goal);
 Node* findStartNode(PRM* map, Node* current_node, OcTree& tree);
 
 bool reach = false;
+bool first_time = true;
 double x, y, z;
 Node current_pose;
 void callback(const nav_msgs::OdometryConstPtr& odom, const octomap_msgs::Octomap::ConstPtr& bmap){
@@ -64,10 +66,11 @@ void callback(const nav_msgs::OdometryConstPtr& odom, const octomap_msgs::Octoma
 
 	// Make new plan
 	if (new_plan){
-		int num_sample = (int) (tree_ptr->size())/(600);
+		if (first_time){roadmap = new PRM (); first_time = false;}
+		int num_sample = (int) (tree_ptr->size())/(300) - roadmap->getSize();
 		cout << "tree size: " << tree_ptr->size() << endl;
 		cout << "num of samples: " << num_sample << endl;
-		PRM* roadmap = buildRoadMap(*tree_ptr, num_sample,  map_vis_array);
+		roadmap = buildRoadMap(*tree_ptr, roadmap, num_sample,  map_vis_array);
 
 		
 		// cout << "map size: " << map->getSize() <<endl;
@@ -85,7 +88,7 @@ void callback(const nav_msgs::OdometryConstPtr& odom, const octomap_msgs::Octoma
 		Node* start = findStartNode(roadmap, &current_pose, *tree_ptr);
 
 		path = multiGoalAStar(roadmap, start);
-		
+		print_path(path);
 
 		path_idx = 0;
 		if (path.size() != 0){
@@ -93,7 +96,7 @@ void callback(const nav_msgs::OdometryConstPtr& odom, const octomap_msgs::Octoma
 			reach = false;
 			++path_idx;
 		}
-		delete roadmap;
+		// delete roadmap;
 		// ==========================VISUALIZATION=============================
 		if (path.size() != 0){
 			// print_node_vector(path);

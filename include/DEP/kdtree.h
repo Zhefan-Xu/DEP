@@ -67,6 +67,7 @@ public:
 	std::vector<Node*> kNearestNeighbor(Node* n, int num);
 	void addGoalNode(Node* n);
 	std::priority_queue<Node*, std::vector<Node*>, GainCompareNode> getGoalNodes();
+	void removeTopGoalNode();
 	std::vector<Node*> getRecord();
 	void clear();   // empty tree
 } PRM;
@@ -283,6 +284,9 @@ void KDTree::addGoalNode(Node* n){
 
 std::priority_queue<Node*, std::vector<Node*>, GainCompareNode> KDTree::getGoalNodes(){
 	return this->goal_nodes;
+}
+void KDTree::removeTopGoalNode(){
+	this->goal_nodes.pop();
 }
 
 std::vector<Node*> KDTree::getRecord(){

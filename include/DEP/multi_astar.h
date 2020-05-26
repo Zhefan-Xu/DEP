@@ -34,6 +34,7 @@ std::vector<Node> multiGoalAStar(PRM* map,
 
 		goal = goal_nodes.top();
 		goal_nodes.pop();	
+		map->removeTopGoalNode();
 		// Open: Priority Queue
 		std::priority_queue<Node*, std::vector<Node*>, CompareNode> open;
 		start->g = 0;
@@ -54,6 +55,7 @@ std::vector<Node> multiGoalAStar(PRM* map,
 				for (Node* n: map->getRecord()){
 					n->g = 1000;
 					n->f = 1000;
+					n->parent = NULL;
 				}
 				break;
 			}
@@ -89,6 +91,7 @@ std::vector<Node> multiGoalAStar(PRM* map,
 	while (ptr != NULL){
 		path.push_back(*ptr);	
 		ptr = ptr->parent;
+		cout << "here" << endl;
 	}
 	std::reverse(path.begin(), path.end());
 	return path;

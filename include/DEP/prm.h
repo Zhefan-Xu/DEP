@@ -198,12 +198,13 @@ std::map<double, int> calculateUnknown(const OcTree& tree, Node* n){
 }
 
 PRM* buildRoadMap(OcTree &tree, 
+				  PRM* map,
 				  int num_sample,
 				  std::vector<visualization_msgs::Marker> &map_vis_array = DEFAULT_VECTOR)
 {
-	PRM* map = new PRM();
+	// PRM* map = new PRM();
 	std::vector<Node*> new_nodes;
-	double threshold = 500; // HardCode threshold
+	// double threshold = 500; // HardCode threshold
 	for (int i=0; i<num_sample; ++i){
 		double distance_to_nn = 0;
 		Node* n;
@@ -258,6 +259,13 @@ PRM* buildRoadMap(OcTree &tree,
 
 		// }
 	}
+	// Set cost and heuristics to inf
+	for (Node* n: map->getRecord()){
+		n->g = 1000;
+		n->f = 1000;
+		n->parent = NULL;
+	}
+
 	if (VISUALIZE_MAP){
 		for (Node* n: map->getRecord()){
 			geometry_msgs::Point p;
