@@ -235,20 +235,35 @@ PRM* buildRoadMap(OcTree &tree,
 	// PRM* map = new PRM();
 	std::vector<Node*> new_nodes;
 	// double threshold = 500; // HardCode threshold
-	for (int i=0; i<num_sample; ++i){
+	bool saturate = false;
+	int count_sample = 0;
+	while (not saturate){
 		double distance_to_nn = 0;
 		Node* n;
-		while (distance_to_nn < 0.5){
+		int count_failure = 0;
+		while (distance_to_nn < 0.8){
+			if (count_failure > 50){
+				saturate = true;
+				break;
+			}
 			n = randomConfig(tree);
 			if (map->getSize() == 0){break;}
 			Node* nn = map->nearestNeighbor(n);
 			distance_to_nn = n->p.distance(nn->p);
 
-			if (distance_to_nn < 0.5){delete n;}
+			if (distance_to_nn < 0.8){
+				++count_failure;
+				delete n;
+			}
+			
 		}
-		map->insert(n);
-		new_nodes.push_back(n);
+		if (map->getSize() == 0 or distance_to_nn >= 0.8){
+			map->insert(n);
+			new_nodes.push_back(n);
+			++count_sample;
+		}
 	}
+	cout << "newly added: " << count_sample << " samples" << endl;
 
 	std::vector<geometry_msgs::Point> node_vis_array;
 	if (VISUALIZE_MAP){
@@ -263,7 +278,8 @@ PRM* buildRoadMap(OcTree &tree,
 		std::vector<Node*> knn = map->kNearestNeighbor(n, 5);
 		for (Node* nearest_neighbor: knn){
 			bool has_collision = checkCollision(tree, n, nearest_neighbor);
-			if (has_collision == false){
+			double distance_to_knn = n->p.distance(nearest_neighbor->p);
+			if (has_collision == false and distance_to_knn < 1.5){
 				n->adjNodes.insert(nearest_neighbor);
 				nearest_neighbor->adjNodes.insert(n); 
 			}

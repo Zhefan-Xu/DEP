@@ -66,8 +66,15 @@ void callback(const nav_msgs::OdometryConstPtr& odom, const octomap_msgs::Octoma
 
 	// Make new plan
 	if (new_plan){
-		if (first_time){roadmap = new PRM (); first_time = false;}
-		int num_sample = (int) (tree_ptr->size())/(300) - roadmap->getSize();
+		int num_sample;
+		if (first_time){
+			roadmap = new PRM ();
+			num_sample = 50; 
+			first_time = false;
+		}
+		else{
+			num_sample = (int) (tree_ptr->size())/(300) - roadmap->getSize();
+		}
 		cout << "tree size: " << tree_ptr->size() << endl;
 		cout << "num of samples: " << num_sample << endl;
 		roadmap = buildRoadMap(*tree_ptr, roadmap, num_sample,  map_vis_array);
