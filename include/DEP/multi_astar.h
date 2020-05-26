@@ -91,7 +91,6 @@ std::vector<Node> multiGoalAStar(PRM* map,
 	while (ptr != NULL){
 		path.push_back(*ptr);	
 		ptr = ptr->parent;
-		cout << "here" << endl;
 	}
 	std::reverse(path.begin(), path.end());
 	return path;

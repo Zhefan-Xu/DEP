@@ -88,7 +88,7 @@ void callback(const nav_msgs::OdometryConstPtr& odom, const octomap_msgs::Octoma
 		Node* start = findStartNode(roadmap, &current_pose, *tree_ptr);
 
 		path = multiGoalAStar(roadmap, start);
-		print_path(path);
+		// print_path(path);
 
 		path_idx = 0;
 		if (path.size() != 0){

@@ -97,6 +97,36 @@ Node* randomConfig(const OcTree& tree, bool allow_not_valid=false){
 }
 
 
+// BBX: (xmin, xmax, ymin, ymax, zmin, zmax)
+Node* randomConfigBBX(const OcTree& tree, std::vector<double> &bbx){ 
+	double min_x, max_x, min_y, max_y, min_z, max_z;
+	min_x = bbx[0];
+	max_x = bbx[1];
+	min_y = bbx[2];
+	max_y = bbx[3];
+	min_z = bbx[4];
+	max_z = bbx[5];
+	bool valid = false;
+	double x, y, z;
+	point3d p;
+
+	while (valid == false){
+		p.x() = randomNumber(min_x, max_x);
+		// Y>0
+		// p.y() = randomNumber(0, max_y);
+		p.y() = randomNumber(min_y, max_y);
+		p.z() = randomNumber(min_z, max_z);
+		// p.z() = randomNumber(min_z, 2.5); // garage and cafe
+		valid = isValid(tree, p, true);
+		// valid = isValid(tree, p);
+	}
+
+	Node* nptr = new Node(p);
+
+	return nptr;
+}
+
+
 
 // Function: Do Collision Checking
 bool checkCollision(OcTree& tree, Node* n1, Node* n2){
@@ -213,6 +243,7 @@ PRM* buildRoadMap(OcTree &tree,
 			if (map->getSize() == 0){break;}
 			Node* nn = map->nearestNeighbor(n);
 			distance_to_nn = n->p.distance(nn->p);
+
 			if (distance_to_nn < 0.5){delete n;}
 		}
 		map->insert(n);
