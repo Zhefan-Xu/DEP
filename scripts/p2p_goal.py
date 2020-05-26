@@ -54,8 +54,14 @@ def callback(all_states, goal):
 				break
 			rospy.Rate(10).sleep()
 	else:
+		if (goal.is_last == True):
+			target_twist.linear.x = 0
+			target_twist.linear.y = 0	
+			target_twist.linear.z = 0
+			target_twist.angular.z = 0
 		target_pose = current_pose
 		target_state.pose = target_pose
+		target_state.twist = target_twist
 		target_state.model_name = target_model_name
 		pub.publish(target_state)
 

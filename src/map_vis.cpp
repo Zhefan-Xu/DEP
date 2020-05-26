@@ -19,28 +19,36 @@ using namespace message_filters;
 ros::Publisher map_vis_pub;
 ros::Publisher goal_pub;
 
+AbstractOcTree* abtree;
+OcTree* tree_ptr;
 bool new_plan = true;
-int num_sample = 100;
+// int num_sample = 100;
 double linear_velocity = 0.2;
 double delta = 0.1; // criteria for chechking reach
 visualization_msgs::MarkerArray map_markers;
 std::vector<visualization_msgs::Marker> map_vis_array;
 visualization_msgs::Marker path_marker;
-std::vector<Node*> path;
+std::vector<Node> path;
 int path_idx = 0;
 DEP::Goal next_goal;
 
-DEP::Goal getNextGoal(const std::vector<Node*> &path, int path_idx, const nav_msgs::OdometryConstPtr& odom);
+DEP::Goal getNextGoal(const std::vector<Node> &path, int path_idx, const nav_msgs::OdometryConstPtr& odom);
 bool isReach(const nav_msgs::OdometryConstPtr& odom, DEP::Goal next_goal);
+Node* findStartNode(PRM* map, Node* current_node, OcTree& tree);
 
 bool reach = false;
+double x, y, z;
+Node current_pose;
 void callback(const nav_msgs::OdometryConstPtr& odom, const octomap_msgs::Octomap::ConstPtr& bmap){
-	AbstractOcTree* abtree = octomap_msgs::binaryMsgToMap(*bmap);
-	OcTree* tree_ptr = dynamic_cast<OcTree*>(abtree);
-	double x = odom->pose.pose.position.x;
-	double y = odom->pose.pose.position.y;
-	double z = odom->pose.pose.position.z;
-	Node current_pose (point3d(x, y, z));
+	abtree = octomap_msgs::binaryMsgToMap(*bmap);
+	tree_ptr = dynamic_cast<OcTree*>(abtree);
+	x = odom->pose.pose.position.x;
+	y = odom->pose.pose.position.y;
+	z = odom->pose.pose.position.z;
+	current_pose.p.x() = x;
+	current_pose.p.y() = y;
+	current_pose.p.z() = z;
+
 	// check if we need to make a new plan
 
 	// check if we already reach the next goal
@@ -56,36 +64,48 @@ void callback(const nav_msgs::OdometryConstPtr& odom, const octomap_msgs::Octoma
 
 	// Make new plan
 	if (new_plan){
-		PRM* map = buildRoadMap(*tree_ptr, num_sample, map_vis_array);
-		cout << "map size: " << map->getSize() <<endl;
-		cout << "map vis array size: " << map_vis_array.size() << endl;
-		for (Node* n : map->getGoalNodes()){
-			print_node(*n);
-		}
+		int num_sample = (int) (tree_ptr->size())/(600);
+		cout << "tree size: " << tree_ptr->size() << endl;
+		cout << "num of samples: " << num_sample << endl;
+		PRM* roadmap = buildRoadMap(*tree_ptr, num_sample,  map_vis_array);
+
+		
+		// cout << "map size: " << map->getSize() <<endl;
+		// cout << "map vis array size: " << map_vis_array.size() << endl;
+		// for (Node* n : map->getGoalNodes()){
+		// 	print_node(*n);
+		// }
 		map_markers.markers = map_vis_array;
 		// Test mulitgoal a star
 
-		Node* start = map->nearestNeighbor(&current_pose);
-		path = multiGoalAStar(map, start);
+		// Node* start = map->nearestNeighbor(&current_pose);
+		
+		
+
+		Node* start = findStartNode(roadmap, &current_pose, *tree_ptr);
+
+		path = multiGoalAStar(roadmap, start);
+		
+
 		path_idx = 0;
 		if (path.size() != 0){
 			next_goal = getNextGoal(path, path_idx, odom);
 			reach = false;
 			++path_idx;
 		}
-		
+		delete roadmap;
 		// ==========================VISUALIZATION=============================
 		if (path.size() != 0){
-			print_node_vector(path);
+			// print_node_vector(path);
 			std::vector<geometry_msgs::Point> path_vis_vector;
 			for (int i=0; i<path.size()-1; ++i){
 				geometry_msgs::Point p1, p2;
-				p1.x = path[i]->p.x();
-				p1.y = path[i]->p.y();
-				p1.z = path[i]->p.z();
-				p2.x = path[i+1]->p.x();
-				p2.y = path[i+1]->p.y();
-				p2.z = path[i+1]->p.z();
+				p1.x = path[i].p.x();
+				p1.y = path[i].p.y();
+				p1.z = path[i].p.z();
+				p2.x = path[i+1].p.x();
+				p2.y = path[i+1].p.y();
+				p2.z = path[i+1].p.z();
 				path_vis_vector.push_back(p1);
 				path_vis_vector.push_back(p2);
 			}
@@ -104,6 +124,7 @@ void callback(const nav_msgs::OdometryConstPtr& odom, const octomap_msgs::Octoma
 		// ====================================================================
 		
 	}
+	delete abtree;
 	
 }
  
@@ -133,16 +154,16 @@ int main(int argc, char** argv){
 
 
 //======================================================================================
-DEP::Goal getNextGoal(const std::vector<Node*> &path, int path_idx, const nav_msgs::OdometryConstPtr& odom){
+DEP::Goal getNextGoal(const std::vector<Node> &path, int path_idx, const nav_msgs::OdometryConstPtr& odom){
 	DEP::Goal goal;
-	goal.x = path[path_idx]->p.x();
-	goal.y = path[path_idx]->p.y();
-	goal.z = path[path_idx]->p.z();
-	goal.yaw = path[path_idx]->yaw;
+	goal.x = path[path_idx].p.x();
+	goal.y = path[path_idx].p.y();
+	goal.z = path[path_idx].p.z();
+	goal.yaw = path[path_idx].yaw;
 	goal.linear_velocity = linear_velocity;
 	if (path_idx != 0){
-		double distance_to_goal = path[path_idx]->p.distance(path[path_idx-1]->p);
-		double dyaw = path[path_idx]->yaw - path[path_idx-1]->yaw;
+		double distance_to_goal = path[path_idx].p.distance(path[path_idx-1].p);
+		double dyaw = path[path_idx].yaw - path[path_idx-1].yaw;
 		goal.angular_velocity = (double) dyaw/(distance_to_goal/linear_velocity);
 	}
 	else{
@@ -155,9 +176,17 @@ DEP::Goal getNextGoal(const std::vector<Node*> &path, int path_idx, const nav_ms
 		double current_roll, current_pitch, current_yaw;
 		tf2::Matrix3x3(tf_quat).getRPY(current_roll, current_pitch, current_yaw);
 		double distance_to_goal = sqrt(pow(goal.x-current_x, 2) + pow(goal.y-current_y, 2) + pow(goal.z-current_z, 2));
-		double dyaw = path[path_idx]->yaw - current_yaw;
+		double dyaw = path[path_idx].yaw - current_yaw;
 		goal.angular_velocity = (double) dyaw/(distance_to_goal/linear_velocity);
 	}
+	// for better simulation control: NOT SURE 
+	if (path_idx == path.size()-1){
+		goal.is_last = true;
+	}
+	else{
+		goal.is_last = false;
+	}
+
 	return goal; 
 }
 
@@ -166,4 +195,16 @@ bool isReach(const nav_msgs::OdometryConstPtr& odom, DEP::Goal next_goal){
 	double current_y = odom->pose.pose.position.y;
 	double current_z = odom->pose.pose.position.z;
 	return std::abs(current_x-next_goal.x) < delta and std::abs(current_y-next_goal.y) < delta and std::abs(current_z-next_goal.z) < delta;
+}
+
+Node* findStartNode(PRM* map, Node* current_node, OcTree& tree){
+	std::vector<Node*> knn = map->kNearestNeighbor(current_node, 5);
+	for (Node* n: knn){
+		bool has_collision = checkCollision(tree, n, current_node);
+		if (not has_collision){
+			return n;
+		}
+	}
+	cout << "No Valid Node for Start" << endl;
+	return NULL;
 }

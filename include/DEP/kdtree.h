@@ -4,6 +4,7 @@
 #include <algorithm>
 #include <stdlib.h>
 #include <unordered_set>
+#include <queue>
 using namespace octomap;
 using std::cout; using std::endl;
 
@@ -19,6 +20,7 @@ typedef struct Node{
 	double g; 			 // gvalue for a star search
 	double f;            // fvalue in a star search
 	std::unordered_set<Node*> adjNodes;
+	Node (){}
 	Node(point3d _p){
 		p = _p;
 		left = NULL;
@@ -33,6 +35,12 @@ struct CompareNode{
 		return n1->f > n2->f;
 	}
 };
+
+struct GainCompareNode{
+	bool operator()(Node* n1, Node* n2){
+		return n1->num_voxels < n2->num_voxels;
+	}
+};
 //======================================================================
 
 
@@ -41,10 +49,13 @@ typedef class KDTree{
 private:
 	int size;
 	Node* root;
-	std::vector<Node*> goal_nodes;
+	// std::vector<Node*> goal_nodes;
 	std::vector<Node*> not_target;
+	std::priority_queue<Node*, std::vector<Node*>, GainCompareNode> goal_nodes;
+	std::vector<Node*> record;
 public:
 	KDTree();
+	~KDTree(); // destructor for free memory;
 	Node* getRoot();
 	int getSize();
 	void insert(Node* n);
@@ -55,7 +66,8 @@ public:
 						  int depth); // return pointer to the nearest neighbor
 	std::vector<Node*> kNearestNeighbor(Node* n, int num);
 	void addGoalNode(Node* n);
-	std::vector<Node*> getGoalNodes();
+	std::priority_queue<Node*, std::vector<Node*>, GainCompareNode> getGoalNodes();
+	std::vector<Node*> getRecord();
 	void clear();   // empty tree
 } PRM;
 
@@ -66,6 +78,12 @@ public:
 KDTree::KDTree(){
 	// root = NULL;
 	size = 0;
+}
+
+KDTree::~KDTree(){
+	for (Node* n: record){
+		delete n;
+	}
 }
 
 Node* KDTree::getRoot(){
@@ -244,6 +262,7 @@ Node* KDTree::nearestNeighbor(Node* n,
 	return best_node;
 }
 
+// Returns the k-nearest neighbor in ascending order
 std::vector<Node*> KDTree::kNearestNeighbor(Node* n, int num){
 	std::vector<Node*> knn;
 	for (int i=0; i<num; ++i){
@@ -251,16 +270,23 @@ std::vector<Node*> KDTree::kNearestNeighbor(Node* n, int num){
 		knn.push_back(nearest_neighbor);
 		this->not_target.push_back(nearest_neighbor);
 	}
+	// std::reverse(knn.begin(), knn.end());
 	this->not_target.clear();
 	return knn;
 }
 
 void KDTree::addGoalNode(Node* n){
-	this->goal_nodes.push_back(n);
+	// this->goal_nodes.push_back(n);
+	this->goal_nodes.push(n);
+	this->record.push_back(n);
 }
 
-std::vector<Node*> KDTree::getGoalNodes(){
+std::priority_queue<Node*, std::vector<Node*>, GainCompareNode> KDTree::getGoalNodes(){
 	return this->goal_nodes;
+}
+
+std::vector<Node*> KDTree::getRecord(){
+	return this->record;
 }
 
 void KDTree::clear(){
@@ -268,3 +294,4 @@ void KDTree::clear(){
 	size = 0;
 	return;
 }
+

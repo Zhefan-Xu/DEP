@@ -5,9 +5,9 @@
 #include <visualization_msgs/Marker.h>
 
 // Define Drone Size:
-double DRONE_X = 0.5;
-double DRONE_Y = 0.5;
-double DRONE_Z = 0.2;
+double DRONE_X = 0.6;
+double DRONE_Y = 0.6;
+double DRONE_Z = 0.1;
 
 // MAP RESOLUTION:
 double RES = 0.1;
@@ -201,13 +201,21 @@ PRM* buildRoadMap(OcTree &tree,
 				  int num_sample,
 				  std::vector<visualization_msgs::Marker> &map_vis_array = DEFAULT_VECTOR)
 {
-	PRM* map = new PRM ();
-	std::vector<Node*> record_nodes;
+	PRM* map = new PRM();
+	std::vector<Node*> new_nodes;
 	double threshold = 500; // HardCode threshold
 	for (int i=0; i<num_sample; ++i){
-		Node* n = randomConfig(tree);
+		double distance_to_nn = 0;
+		Node* n;
+		while (distance_to_nn < 0.5){
+			n = randomConfig(tree);
+			if (map->getSize() == 0){break;}
+			Node* nn = map->nearestNeighbor(n);
+			distance_to_nn = n->p.distance(nn->p);
+			if (distance_to_nn < 0.5){delete n;}
+		}
 		map->insert(n);
-		record_nodes.push_back(n);
+		new_nodes.push_back(n);
 	}
 
 	std::vector<geometry_msgs::Point> node_vis_array;
@@ -218,9 +226,9 @@ PRM* buildRoadMap(OcTree &tree,
 	int node_point_id = 1;
 	int unknown_voxel_id = 1000;
 	// Check neighbor and add edges
-	for (Node* n: record_nodes){
+	for (Node* n: new_nodes){
 		// Node* nearest_neighbor = map->nearestNeighbor(n);
-		std::vector<Node*> knn = map->kNearestNeighbor(n, 4);
+		std::vector<Node*> knn = map->kNearestNeighbor(n, 5);
 		for (Node* nearest_neighbor: knn){
 			bool has_collision = checkCollision(tree, n, nearest_neighbor);
 			if (has_collision == false){
@@ -233,6 +241,7 @@ PRM* buildRoadMap(OcTree &tree,
 		double best_num_voxels = 0;
 		for (double yaw: yaws){
 			double num_voxels = yaw_num_voxels[yaw];
+
 			if (num_voxels > best_num_voxels){
 				best_num_voxels = num_voxels;
 				best_yaw = yaw;
@@ -241,11 +250,16 @@ PRM* buildRoadMap(OcTree &tree,
 		n->yaw = best_yaw;
 		n->num_voxels = best_num_voxels;
 
-		if (n->num_voxels > threshold){
-			map->addGoalNode(n);
-		}
+		// if (n->num_voxels > threshold){
+		map->addGoalNode(n);
+		// }
 		// ====================================VISUALIZATION===============================================
-		if (VISUALIZE_MAP){	
+		// if (VISUALIZE_MAP){	
+
+		// }
+	}
+	if (VISUALIZE_MAP){
+		for (Node* n: map->getRecord()){
 			geometry_msgs::Point p;
 			p.x = n->p.x();
 			p.y = n->p.y();
@@ -301,8 +315,6 @@ PRM* buildRoadMap(OcTree &tree,
 				node_vis_array.push_back(p_adj);
 			}
 		}
-	}
-	if (VISUALIZE_MAP){
 		visualization_msgs::Marker node_vis_marker;
 		node_vis_marker.header.frame_id = "world";
 		node_vis_marker.points = node_vis_array;
@@ -315,7 +327,7 @@ PRM* buildRoadMap(OcTree &tree,
 		node_vis_marker.color.r = 0.0;
 		node_vis_marker.color.g = 1.0;
 		node_vis_marker.color.b = 0.0;
-		cout << "NODE VIS ARRAY SIZE: "<< node_vis_array.size() << endl;
+		// cout << "NODE VIS ARRAY SIZE: "<< node_vis_array.size() << endl;
 		map_vis_array.push_back(node_vis_marker);
 	}
 
@@ -324,8 +336,5 @@ PRM* buildRoadMap(OcTree &tree,
 
 
 // ===================Visualization============================
-std::vector<geometry_msgs::Point> get_map_vis_array(PRM* map){
-	std::vector<geometry_msgs::Point> map_vis_array;
 
-}
 
