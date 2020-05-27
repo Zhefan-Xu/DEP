@@ -239,15 +239,19 @@ PRM* buildRoadMap(OcTree &tree,
 	int count_sample = 0;
 	while (not saturate){
 		double distance_to_nn = 0;
-		Node* n;
 		int count_failure = 0;
-		while (distance_to_nn < 0.8){
+		while (true){
 			if (count_failure > 50){
 				saturate = true;
 				break;
 			}
-			n = randomConfig(tree);
-			if (map->getSize() == 0){break;}
+			Node* n = randomConfig(tree);
+			if (map->getSize() == 0){
+				map->insert(n);
+				new_nodes.push_back(n);
+				++count_sample;
+				break;
+			}
 			Node* nn = map->nearestNeighbor(n);
 			distance_to_nn = n->p.distance(nn->p);
 
@@ -255,12 +259,12 @@ PRM* buildRoadMap(OcTree &tree,
 				++count_failure;
 				delete n;
 			}
-			
-		}
-		if (map->getSize() == 0 or distance_to_nn >= 0.8){
-			map->insert(n);
-			new_nodes.push_back(n);
-			++count_sample;
+			else{
+				map->insert(n);
+				new_nodes.push_back(n);
+				++count_sample;
+				break;
+			}
 		}
 	}
 	cout << "newly added: " << count_sample << " samples" << endl;
@@ -276,14 +280,19 @@ PRM* buildRoadMap(OcTree &tree,
 	for (Node* n: new_nodes){
 		// Node* nearest_neighbor = map->nearestNeighbor(n);
 		std::vector<Node*> knn = map->kNearestNeighbor(n, 5);
+
 		for (Node* nearest_neighbor: knn){
 			bool has_collision = checkCollision(tree, n, nearest_neighbor);
 			double distance_to_knn = n->p.distance(nearest_neighbor->p);
+			if (distance_to_knn < 0.8){
+				cout << "bad node" << endl;
+			}
 			if (has_collision == false and distance_to_knn < 1.5){
 				n->adjNodes.insert(nearest_neighbor);
 				nearest_neighbor->adjNodes.insert(n); 
 			}
 		}
+
 		std::map<double, int> yaw_num_voxels = calculateUnknown(tree, n);
 		double best_yaw;
 		double best_num_voxels = 0;

@@ -15,6 +15,7 @@ typedef struct Node{
 	double num_voxels;
 	struct Node* left;   // kd-tree left
 	struct Node* right;  // kd-tree right
+	struct Node* tree_parent; // kd-tree parent
 	struct Node* parent; // for backtracking
 	struct Node* img_n;  // for multi goal a star
 	double g; 			 // gvalue for a star search
@@ -25,8 +26,10 @@ typedef struct Node{
 		p = _p;
 		left = NULL;
 		right = NULL;
+		tree_parent = NULL;
 		parent = NULL;
 		g = 10000000;
+		f = 10000000;
 	}
 } Node;
 
@@ -128,6 +131,7 @@ void KDTree::insert(Node* n){
 			if (insert_value >= value){
 				if (ptr->right == NULL){
 					ptr->right = n;
+					n->tree_parent = ptr;
 					++size;
 					return;
 				}
@@ -136,6 +140,7 @@ void KDTree::insert(Node* n){
 			else{
 				if (ptr->left == NULL){
 					ptr->left = n;
+					n->tree_parent = ptr;
 					++size;
 					return;
 				}
@@ -147,6 +152,7 @@ void KDTree::insert(Node* n){
 	return;
 }
 
+static double least_distance_nn = 10000000;
 Node* KDTree::nearestNeighbor(Node* n, 
 							  Node* root_node=NULL,
 							  Node* best_node = NULL,
@@ -164,8 +170,10 @@ Node* KDTree::nearestNeighbor(Node* n,
 	// Store Bad side
 	std::vector<Node*> bad_side;
 	while (ptr != NULL){
-		// cout << ptr->p.x() << ptr->p.y() << ptr->p.z() << endl;
+		
 		// cout << "depth: " << depth << endl;
+	 //    cout << "point: "<< ptr->p.x() <<", " <<  ptr->p.y()<<", " << ptr->p.z() << endl;
+
 		// Check current node againt the best node
 		double distance_current = p.distance(ptr->p);
 
@@ -181,9 +189,9 @@ Node* KDTree::nearestNeighbor(Node* n,
 		}
 
 		//============================================================
-		if (distance_current < least_distance){	
+		if (distance_current < least_distance_nn){	
 			best_node = ptr;
-			least_distance = distance_current;
+			least_distance_nn = distance_current;
 		}
 
 
@@ -215,8 +223,11 @@ Node* KDTree::nearestNeighbor(Node* n,
 		}
 		++depth;
 	}
+
 	// Search bad side:
+	// cout << depth << endl;
 	std::reverse(bad_side.begin(), bad_side.end());
+	// cout << "bad side size :" << bad_side.size() << endl;
 	// cout << "bad side size: " << bad_side.size() << endl;
 	// cout << "least distance after good search: " << least_distance << endl; 
 	int count = 0;
@@ -227,26 +238,37 @@ Node* KDTree::nearestNeighbor(Node* n,
 		// If there is no node in bad side
 		if (*itr == NULL){
 			// cout << "no branch" << endl;
+			// cout << "depth NULL: " << depth << endl;
 			--depth;
 			continue;
 		}
 		else{
 			// cout << "have branch" << endl;
 			double value, query_value;
-			if (depth % 3 == 0){
-				value = (*itr)->p.x();
+			if ((depth-1) % 3 == 0){
+				value = (*itr)->tree_parent->p.x();
 				query_value = p.x();
 			}
-			else if (depth % 3 == 1){
-				value = (*itr)->p.y();
+			else if ((depth-1) % 3 == 1){
+				value = (*itr)->tree_parent->p.y();
 				query_value = p.y();
 			}
-			else if (depth % 3 == 2){
-				value = (*itr)->p.z();
+			else if ((depth-1) % 3 == 2){
+				value = (*itr)->tree_parent->p.z();
 				query_value = p.z();
 			}
-			double best_bad_side_distance = abs(value - query_value);
+			double best_bad_side_distance = std::abs(value - query_value);
+			// cout << "value, query_value: " << value << " " << query_value << endl;
+			// cout << "depth: " << depth << "  best bad: " << best_bad_side_distance << endl;
+			// if (best_node != NULL){
+			// 	cout << "current best: "<< best_node->p.x() <<", " <<  best_node->p.y()<<", " << best_node->p.z() << endl;
+			// }
+			// else{
+			// 	cout << "current best is null" << endl;
+			// }
+			// cout << "least_distance: " << least_distance << endl;
 			if (best_bad_side_distance >= least_distance){
+
 				// cout << "best distance is not good enough" << endl;
 				// cout << "best bad side distance: " << best_bad_side_distance << endl;
 				// cout << "least distance: " << least_distance << endl;
@@ -255,10 +277,16 @@ Node* KDTree::nearestNeighbor(Node* n,
 			}
 			else{
 				// cout << "recursive call at depth : " << depth << endl;
+				// cout << "root point: "<< (*itr)->p.x() <<", " <<  (*itr)->p.y()<<", " << (*itr)->p.z() << endl;
+				// cout << "least_distance: " << least_distance << endl;
 				best_node = nearestNeighbor(n, *itr, best_node, least_distance, depth);
 				--depth;	
 			}
 		}	
+	}
+
+	if (root_node == NULL){
+		least_distance_nn = 1000000;
 	}
 	return best_node;
 }
@@ -266,11 +294,16 @@ Node* KDTree::nearestNeighbor(Node* n,
 // Returns the k-nearest neighbor in ascending order
 std::vector<Node*> KDTree::kNearestNeighbor(Node* n, int num){
 	std::vector<Node*> knn;
+	// cout << "================start================" <<endl;
 	for (int i=0; i<num; ++i){
+		// cout << "====================" << i << "=========================" << endl;
 		Node* nearest_neighbor = nearestNeighbor(n);
 		knn.push_back(nearest_neighbor);
 		this->not_target.push_back(nearest_neighbor);
+		// cout << n->p.distance(nearest_neighbor->p) << endl;
+		// cout << "================================================" << endl;
 	}
+	// cout << "================end================" <<endl;
 	// std::reverse(knn.begin(), knn.end());
 	this->not_target.clear();
 	return knn;

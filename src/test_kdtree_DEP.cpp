@@ -156,7 +156,7 @@ void test_kdtree_knn(){
 	point3d pa (6, 1, 0);
 	point3d pb (3, 3, 0);
 	point3d pc (9, 3, 0);
-	point3d p9 (9, 3, 2); // nearest neighbor should be (9, 3, 0)
+	point3d p9 (10, 0, 10.1); // nearest neighbor should be (9, 3, 0)
 	Node n8 (p8);
 	Node na (pa);
 	Node nb (pb);
@@ -165,9 +165,9 @@ void test_kdtree_knn(){
 	t1.insert(&na);
 	t1.insert(&nb);
 	t1.insert(&nc);
-	t1.insert(&n9);
+	// t1.insert(&n9);
 	std::vector<Node*> knn;
-	knn = t1.kNearestNeighbor(&n9, 5);
+	knn = t1.kNearestNeighbor(&n9, 7);
 	print_node_vector(knn);
 
 	// Test Clear Tree:
