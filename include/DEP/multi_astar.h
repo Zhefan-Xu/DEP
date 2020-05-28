@@ -14,12 +14,12 @@ bool inClose(Node* n, const std::unordered_set<Node*> &close){
 	}
 }
 
-std::vector<Node> multiGoalAStar(PRM* map,
+std::vector<Node*> multiGoalAStar(PRM* map,
 								  Node* start)
 {
 	// This version only finds the path to highest info gain for debug purpose
 	//i Goal Nodes
-	std::vector<Node> path;
+	std::vector<Node*> path;
 	std::priority_queue<Node*, std::vector<Node*>, GainCompareNode> goal_nodes = map->getGoalNodes();
 	Node* goal; 
 	bool find_path = false;
@@ -89,7 +89,7 @@ std::vector<Node> multiGoalAStar(PRM* map,
 	
 	Node* ptr = goal;
 	while (ptr != NULL){
-		path.push_back(*ptr);	
+		path.push_back(ptr);	
 		ptr = ptr->parent;
 	}
 	std::reverse(path.begin(), path.end());

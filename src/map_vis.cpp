@@ -29,11 +29,11 @@ double delta = 0.1; // criteria for chechking reach
 visualization_msgs::MarkerArray map_markers;
 std::vector<visualization_msgs::Marker> map_vis_array;
 visualization_msgs::Marker path_marker;
-std::vector<Node> path;
+std::vector<Node*> path;
 int path_idx = 0;
 DEP::Goal next_goal;
 
-DEP::Goal getNextGoal(const std::vector<Node> &path, int path_idx, const nav_msgs::OdometryConstPtr& odom);
+DEP::Goal getNextGoal(std::vector<Node*> path, int path_idx, const nav_msgs::OdometryConstPtr& odom);
 bool isReach(const nav_msgs::OdometryConstPtr& odom, DEP::Goal next_goal);
 Node* findStartNode(PRM* map, Node* current_node, OcTree& tree);
 
@@ -66,17 +66,19 @@ void callback(const nav_msgs::OdometryConstPtr& odom, const octomap_msgs::Octoma
 
 	// Make new plan
 	if (new_plan){
-		int num_sample;
+		Node* start;
 		if (first_time){
-			roadmap = new PRM ();
-			num_sample = 50; 
+			roadmap = new PRM ();	
+		}
+
+		roadmap = buildRoadMap(*tree_ptr, roadmap, path,  map_vis_array);
+		if (first_time){
+			start = findStartNode(roadmap, &current_pose, *tree_ptr);
 			first_time = false;
 		}
 		else{
-			num_sample = (int) (tree_ptr->size())/(300) - roadmap->getSize();
+			start = *(path.end()-1);
 		}
-		roadmap = buildRoadMap(*tree_ptr, roadmap, path,  map_vis_array);
-
 		
 		// cout << "map size: " << map->getSize() <<endl;
 		// cout << "map vis array size: " << map_vis_array.size() << endl;
@@ -90,7 +92,7 @@ void callback(const nav_msgs::OdometryConstPtr& odom, const octomap_msgs::Octoma
 		
 		
 
-		Node* start = findStartNode(roadmap, &current_pose, *tree_ptr);
+		 
 
 		path = multiGoalAStar(roadmap, start);
 		// print_path(path);
@@ -108,12 +110,12 @@ void callback(const nav_msgs::OdometryConstPtr& odom, const octomap_msgs::Octoma
 			std::vector<geometry_msgs::Point> path_vis_vector;
 			for (int i=0; i<path.size()-1; ++i){
 				geometry_msgs::Point p1, p2;
-				p1.x = path[i].p.x();
-				p1.y = path[i].p.y();
-				p1.z = path[i].p.z();
-				p2.x = path[i+1].p.x();
-				p2.y = path[i+1].p.y();
-				p2.z = path[i+1].p.z();
+				p1.x = path[i]->p.x();
+				p1.y = path[i]->p.y();
+				p1.z = path[i]->p.z();
+				p2.x = path[i+1]->p.x();
+				p2.y = path[i+1]->p.y();
+				p2.z = path[i+1]->p.z();
 				path_vis_vector.push_back(p1);
 				path_vis_vector.push_back(p2);
 			}
@@ -162,16 +164,16 @@ int main(int argc, char** argv){
 
 
 //======================================================================================
-DEP::Goal getNextGoal(const std::vector<Node> &path, int path_idx, const nav_msgs::OdometryConstPtr& odom){
+DEP::Goal getNextGoal(std::vector<Node*> path, int path_idx, const nav_msgs::OdometryConstPtr& odom){
 	DEP::Goal goal;
-	goal.x = path[path_idx].p.x();
-	goal.y = path[path_idx].p.y();
-	goal.z = path[path_idx].p.z();
-	goal.yaw = path[path_idx].yaw;
+	goal.x = path[path_idx]->p.x();
+	goal.y = path[path_idx]->p.y();
+	goal.z = path[path_idx]->p.z();
+	goal.yaw = path[path_idx]->yaw;
 	goal.linear_velocity = linear_velocity;
 	if (path_idx != 0){
-		double distance_to_goal = path[path_idx].p.distance(path[path_idx-1].p);
-		double dyaw = path[path_idx].yaw - path[path_idx-1].yaw;
+		double distance_to_goal = path[path_idx]->p.distance(path[path_idx-1]->p);
+		double dyaw = path[path_idx]->yaw - path[path_idx-1]->yaw;
 		goal.angular_velocity = (double) dyaw/(distance_to_goal/linear_velocity);
 	}
 	else{
@@ -184,7 +186,7 @@ DEP::Goal getNextGoal(const std::vector<Node> &path, int path_idx, const nav_msg
 		double current_roll, current_pitch, current_yaw;
 		tf2::Matrix3x3(tf_quat).getRPY(current_roll, current_pitch, current_yaw);
 		double distance_to_goal = sqrt(pow(goal.x-current_x, 2) + pow(goal.y-current_y, 2) + pow(goal.z-current_z, 2));
-		double dyaw = path[path_idx].yaw - current_yaw;
+		double dyaw = path[path_idx]->yaw - current_yaw;
 		goal.angular_velocity = (double) dyaw/(distance_to_goal/linear_velocity);
 	}
 	// for better simulation control: NOT SURE 

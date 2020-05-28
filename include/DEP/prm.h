@@ -216,11 +216,11 @@ std::map<double, int> calculateUnknown(const OcTree& tree, Node* n){
 }
 
 
-bool isNodeRequireUpdate(Node* n, std::vector<Node> &path, double& least_distance){
+bool isNodeRequireUpdate(Node* n, std::vector<Node*> path, double& least_distance){
 	double distance_thresh = 2;
 	least_distance = 1000000;
-	for (Node waypoint: path){
-		double current_distance = n->p.distance(waypoint.p);
+	for (Node* waypoint: path){
+		double current_distance = n->p.distance(waypoint->p);
 		if (current_distance < least_distance){
 			least_distance = current_distance;
 		}
@@ -237,7 +237,7 @@ bool isNodeRequireUpdate(Node* n, std::vector<Node> &path, double& least_distanc
 
 PRM* buildRoadMap(OcTree &tree, 
 				  PRM* map,
-				  std::vector<Node> &path, 
+				  std::vector<Node*> path, 
 				  std::vector<visualization_msgs::Marker> &map_vis_array = DEFAULT_VECTOR)
 {
 	// ==================================Sampling===========================================================
