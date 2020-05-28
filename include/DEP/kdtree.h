@@ -13,6 +13,7 @@ typedef struct Node{
 	point3d p; // (x, y, z) see octomath::vector3
 	double yaw; //radius for best yaw angle
 	double num_voxels;
+	double ig;           // information gain by distance and num voxels
 	struct Node* left;   // kd-tree left
 	struct Node* right;  // kd-tree right
 	struct Node* tree_parent; // kd-tree parent
@@ -44,7 +45,7 @@ struct CompareNode{
 
 struct GainCompareNode{
 	bool operator()(Node* n1, Node* n2){
-		return n1->num_voxels < n2->num_voxels;
+		return n1->ig < n2->ig;
 	}
 };
 //======================================================================

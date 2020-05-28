@@ -7,7 +7,7 @@ void test_build_road_map(OcTree &tree){
 	PRM* map;
 	std::vector<Node*> path;
 	map = new PRM ();
-	map = buildRoadMap(tree, map, path, map_vis_array);
+	map = buildRoadMap(tree, map, path, NULL,map_vis_array);
 	cout << "map size: " << map->getSize() <<endl;
 	cout << "map vis array size: " << map_vis_array.size() << endl;
 	return;

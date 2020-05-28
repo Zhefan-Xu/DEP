@@ -71,13 +71,15 @@ void callback(const nav_msgs::OdometryConstPtr& odom, const octomap_msgs::Octoma
 			roadmap = new PRM ();	
 		}
 
-		roadmap = buildRoadMap(*tree_ptr, roadmap, path,  map_vis_array);
+		
 		if (first_time){
+			roadmap = buildRoadMap(*tree_ptr, roadmap, path,  NULL, map_vis_array);
 			start = findStartNode(roadmap, &current_pose, *tree_ptr);
 			first_time = false;
 		}
 		else{
 			start = *(path.end()-1);
+			roadmap = buildRoadMap(*tree_ptr, roadmap, path,  start, map_vis_array);
 		}
 		
 		// cout << "map size: " << map->getSize() <<endl;

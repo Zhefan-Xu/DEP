@@ -4,6 +4,22 @@
 #include <geometry_msgs/Point.h>
 #include <visualization_msgs/Marker.h>
 
+// Environment Limit
+// cafe
+// double env_x_min = -4.5;
+// double env_x_max = 4.5;
+// double env_y_min = -11;
+// double env_y_max = 7;
+// double env_z_min = 0;
+// double env_z_max = 3;
+//garage
+double env_x_min = -19;
+double env_x_max = 28;
+double env_y_min = -20;
+double env_y_max = 25;
+double env_z_min = 0;
+double env_z_max = 3;
+
 // Define Drone Size:
 double DRONE_X = 0.6;
 double DRONE_Y = 0.6;
@@ -73,6 +89,12 @@ Node* randomConfig(const OcTree& tree, bool allow_not_valid=false){
 	double min_x, max_x, min_y, max_y, min_z, max_z;
 	tree.getMetricMax(max_x, max_y, max_z);
 	tree.getMetricMin(min_x, min_y, min_z);
+	min_x = std::max(min_x, env_x_min);
+	max_x = std::min(max_x, env_x_max);
+	min_y = std::max(min_y, env_y_min);
+	max_y = std::min(max_y, env_y_max);
+	min_z = std::max(min_z, env_z_min);
+	max_z = std::min(max_z, env_z_max);
 	bool valid = false;
 	double x, y, z;
 	point3d p;
@@ -181,6 +203,10 @@ std::map<double, int> calculateUnknown(const OcTree& tree, Node* n){
 			continue;
 		}
 		point3d u = *itr;
+		bool not_in_scope = u.x() > env_x_max or u.x() < env_x_min or u.y() > env_y_max or u.y() < env_y_min or u.z() > env_z_max or u.z() < env_z_min;
+		if (not_in_scope){
+			continue;
+		}
 		OcTreeNode* nptr = tree.search(u);
 		if (nptr == NULL){ // Unknown
 			distance = p.distance(u);
@@ -237,7 +263,8 @@ bool isNodeRequireUpdate(Node* n, std::vector<Node*> path, double& least_distanc
 
 PRM* buildRoadMap(OcTree &tree, 
 				  PRM* map,
-				  std::vector<Node*> path, 
+				  std::vector<Node*> path,
+				  Node* start = NULL,  
 				  std::vector<visualization_msgs::Marker> &map_vis_array = DEFAULT_VECTOR)
 {
 	// ==================================Sampling===========================================================
@@ -361,6 +388,13 @@ PRM* buildRoadMap(OcTree &tree,
 			n->update = false;
 		}
 		n->new_node = false;
+		if (start == NULL){
+			n->ig = n->num_voxels;
+		}
+		else{
+			double distance_to_start = n->p.distance(start->p);
+			n->ig = n->num_voxels * exp(-0.1 * distance_to_start);
+		}
 		map->addGoalPQ(n);
 	}
 	cout << "Number of nodes needed updated is: " << count_update_node << endl;
