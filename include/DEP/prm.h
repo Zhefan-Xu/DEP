@@ -208,18 +208,6 @@ std::map<double, int> calculateUnknown(const OcTree& tree, Node* n){
 						}
 					}
 				}
-
-				// if (abs(horizawontal_angle) < horizontal_max_angle and abs(vertical_angle) < vertical_max_angle){
-				// double angle = face.angleTo(direction);
-				// if (angle <= FOV/2){
-				// 	point3d end;
-				// 	bool cast = tree.castRay(p, direction, end, true, distance);
-				// 	double cast_distance = p.distance(end);
-				// 	// cout << cast << endl;
-				// 	if (cast == false){ // No Occupied was hit
-				// 		++count;
-				// 	}
-				// }
 			}
 		}
 	}
@@ -227,12 +215,34 @@ std::map<double, int> calculateUnknown(const OcTree& tree, Node* n){
 	return yaw_num_voxels;
 }
 
+
+bool isNodeRequireUpdate(Node* n, std::vector<Node> &path, double& least_distance){
+	double distance_thresh = 2;
+	least_distance = 1000000;
+	for (Node waypoint: path){
+		double current_distance = n->p.distance(waypoint.p);
+		if (current_distance < least_distance){
+			least_distance = current_distance;
+		}
+	}
+	if (least_distance <= distance_thresh){
+		return true;
+	}
+	else{
+		return false;	
+	}
+	
+}
+
+
 PRM* buildRoadMap(OcTree &tree, 
 				  PRM* map,
-				  int num_sample,
+				  std::vector<Node> &path, 
 				  std::vector<visualization_msgs::Marker> &map_vis_array = DEFAULT_VECTOR)
 {
+	// ==================================Sampling===========================================================
 	// PRM* map = new PRM();
+	map->clearGoalPQ();
 	std::vector<Node*> new_nodes;
 	// double threshold = 500; // HardCode threshold
 	bool saturate = false;
@@ -247,6 +257,7 @@ PRM* buildRoadMap(OcTree &tree,
 			}
 			Node* n = randomConfig(tree);
 			if (map->getSize() == 0){
+				n->new_node = true;
 				map->insert(n);
 				new_nodes.push_back(n);
 				++count_sample;
@@ -260,6 +271,7 @@ PRM* buildRoadMap(OcTree &tree,
 				delete n;
 			}
 			else{
+				n->new_node = true;
 				map->insert(n);
 				new_nodes.push_back(n);
 				++count_sample;
@@ -269,13 +281,8 @@ PRM* buildRoadMap(OcTree &tree,
 	}
 	cout << "newly added: " << count_sample << " samples" << endl;
 
-	std::vector<geometry_msgs::Point> node_vis_array;
-	if (VISUALIZE_MAP){
-		map_vis_array.clear();
-	}
 
-	int node_point_id = 1;
-	int unknown_voxel_id = 1000;
+	// ========================Connect and Evaluate for new===================================================
 	// Check neighbor and add edges
 	for (Node* n: new_nodes){
 		// Node* nearest_neighbor = map->nearestNeighbor(n);
@@ -306,20 +313,66 @@ PRM* buildRoadMap(OcTree &tree,
 		}
 		n->yaw = best_yaw;
 		n->num_voxels = best_num_voxels;
+		map->addRecord(n);
 
-		// if (n->num_voxels > threshold){
-		map->addGoalNode(n);
-		// }
-		// ====================================VISUALIZATION===============================================
-		// if (VISUALIZE_MAP){	
-
-		// }
 	}
+
+	// ==========================Update Old node===============================================================
 	// Set cost and heuristics to inf
+	int count_update_node = 0;
+	int count_actual_update = 0;
 	for (Node* n: map->getRecord()){
 		n->g = 1000;
 		n->f = 1000;
 		n->parent = NULL;
+		// Check whether the nodes need to update:
+		double least_distance;
+		bool update = isNodeRequireUpdate(n, path, least_distance);
+		if (update and n->new_node==false){
+			n->update = true;
+			++count_update_node;
+			// check the update condition: 
+			// 1. if node is very close to trajetory: set it to zero
+			// 2. if it is already 0, leave it
+			// 3. if it is less than threshold (e.g 100), set it to zero
+			// 4. if non of those applies, recalculate it
+			double cut_off_value = 100;
+			double cut_off_distance = 1;
+			if (n->num_voxels <= cut_off_value or least_distance <= cut_off_distance){
+				n->num_voxels = 0;
+			}
+			else{
+				++count_actual_update;
+				std::map<double, int> yaw_num_voxels = calculateUnknown(tree, n);
+				double best_yaw;
+				double best_num_voxels = 0;
+				for (double yaw: yaws){
+					double num_voxels = yaw_num_voxels[yaw];
+					if (num_voxels > best_num_voxels){
+						best_num_voxels = num_voxels;
+						best_yaw = yaw;
+					}
+				}
+				n->yaw = best_yaw;
+				n->num_voxels = best_num_voxels;
+			}
+		}
+		else{
+			n->update = false;
+		}
+		n->new_node = false;
+		map->addGoalPQ(n);
+	}
+	cout << "Number of nodes needed updated is: " << count_update_node << endl;
+	cout << "Number of actual nodes needed updated is: " << count_actual_update << endl;
+
+	// ====================================VISUALIZATION===============================================
+
+	int node_point_id = 1;
+	int unknown_voxel_id = 1000;
+	std::vector<geometry_msgs::Point> node_vis_array;
+	if (VISUALIZE_MAP){
+		map_vis_array.clear();
 	}
 
 	if (VISUALIZE_MAP){
@@ -344,6 +397,11 @@ PRM* buildRoadMap(OcTree &tree,
 			node_point_vis_marker.color.r = 1.0;
 			node_point_vis_marker.color.g = 0.0;
 			node_point_vis_marker.color.b = 0.0;
+			if (n->update == true){
+				node_point_vis_marker.color.r = 0.0;
+				node_point_vis_marker.color.g = 0.0;
+				node_point_vis_marker.color.b = 1.0;
+			}
 
 			++node_point_id;
 

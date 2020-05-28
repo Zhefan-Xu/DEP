@@ -50,8 +50,8 @@ std::vector<Node> multiGoalAStar(PRM* map,
 				break;
 			}
 			if (open.size() == 0){
-				cout << "Try next goal!" << endl;
-				cout << "This gain: " << goal->num_voxels << endl;
+				// cout << "Try next goal!" << endl;
+				// cout << "This gain: " << goal->num_voxels << endl;
 				for (Node* n: map->getRecord()){
 					n->g = 1000;
 					n->f = 1000;

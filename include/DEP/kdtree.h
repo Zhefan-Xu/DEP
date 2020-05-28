@@ -20,6 +20,8 @@ typedef struct Node{
 	struct Node* img_n;  // for multi goal a star
 	double g; 			 // gvalue for a star search
 	double f;            // fvalue in a star search
+	bool update;         // if we need to reevaluate the info gain
+	bool new_node; 		 // if the node is newly added
 	std::unordered_set<Node*> adjNodes;
 	Node (){}
 	Node(point3d _p){
@@ -30,6 +32,7 @@ typedef struct Node{
 		parent = NULL;
 		g = 10000000;
 		f = 10000000;
+		update = false;
 	}
 } Node;
 
@@ -68,10 +71,12 @@ public:
 						  double least_distance,
 						  int depth); // return pointer to the nearest neighbor
 	std::vector<Node*> kNearestNeighbor(Node* n, int num);
-	void addGoalNode(Node* n);
+	void addRecord(Node* n);
+	void addGoalPQ(Node* n);
 	std::priority_queue<Node*, std::vector<Node*>, GainCompareNode> getGoalNodes();
 	void removeTopGoalNode();
-	std::vector<Node*> getRecord();
+	void clearGoalPQ();
+	std::vector<Node*>& getRecord();
 	void clear();   // empty tree
 } PRM;
 
@@ -309,10 +314,13 @@ std::vector<Node*> KDTree::kNearestNeighbor(Node* n, int num){
 	return knn;
 }
 
-void KDTree::addGoalNode(Node* n){
+void KDTree::addRecord(Node* n){
 	// this->goal_nodes.push_back(n);
-	this->goal_nodes.push(n);
 	this->record.push_back(n);
+}
+
+void KDTree::addGoalPQ(Node* n){
+	this->goal_nodes.push(n);
 }
 
 std::priority_queue<Node*, std::vector<Node*>, GainCompareNode> KDTree::getGoalNodes(){
@@ -322,7 +330,11 @@ void KDTree::removeTopGoalNode(){
 	this->goal_nodes.pop();
 }
 
-std::vector<Node*> KDTree::getRecord(){
+void KDTree::clearGoalPQ(){
+	this->goal_nodes = std::priority_queue<Node*, std::vector<Node*>, GainCompareNode> ();
+}
+
+std::vector<Node*>& KDTree::getRecord(){
 	return this->record;
 }
 
