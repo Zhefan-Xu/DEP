@@ -6,24 +6,31 @@
 
 // Environment Limit
 // cafe
-// double env_x_min = -4.5;
-// double env_x_max = 4.5;
-// double env_y_min = -11;
-// double env_y_max = 7;
-// double env_z_min = 0;
-// double env_z_max = 3;
-//garage
-double env_x_min = -19;
-double env_x_max = 28;
-double env_y_min = -20;
-double env_y_max = 25;
+double env_x_min = -4.5;
+double env_x_max = 4.5;
+double env_y_min = -11;
+double env_y_max = 7;
 double env_z_min = 0;
-double env_z_max = 3;
+double env_z_max = 2.5;
+
 
 // Define Drone Size:
-double DRONE_X = 0.6;
-double DRONE_Y = 0.6;
+double DRONE_X = 0.5;
+double DRONE_Y = 0.5;
 double DRONE_Z = 0.1;
+
+// //garage
+// double env_x_min = -15;
+// double env_x_max = 28;
+// double env_y_min = -20;
+// double env_y_max = 25;
+// double env_z_min = 0;
+// double env_z_max = 2.5;
+
+// // Define Drone Size:
+// double DRONE_X = 0.3;
+// double DRONE_Y = 0.3;
+// double DRONE_Z = 0.1;
 
 // MAP RESOLUTION:
 double RES = 0.1;
@@ -122,12 +129,20 @@ Node* randomConfig(const OcTree& tree, bool allow_not_valid=false){
 // BBX: (xmin, xmax, ymin, ymax, zmin, zmax)
 Node* randomConfigBBX(const OcTree& tree, std::vector<double> &bbx){ 
 	double min_x, max_x, min_y, max_y, min_z, max_z;
-	min_x = bbx[0];
-	max_x = bbx[1];
-	min_y = bbx[2];
-	max_y = bbx[3];
-	min_z = bbx[4];
-	max_z = bbx[5];
+	tree.getMetricMax(max_x, max_y, max_z);
+	tree.getMetricMin(min_x, min_y, min_z);
+	min_x = std::max(min_x, bbx[0]);
+	max_x = std::min(max_x, bbx[1]);
+	min_y = std::max(min_y, bbx[2]);
+	max_y = std::min(max_y, bbx[3]);
+	min_z = std::max(min_z, bbx[4]);
+	max_z = std::min(max_z, bbx[5]);
+	min_x = std::max(min_x, env_x_min);
+	max_x = std::min(max_x, env_x_max);
+	min_y = std::max(min_y, env_y_min);
+	max_y = std::min(max_y, env_y_max);
+	min_z = std::max(min_z, env_z_min);
+	max_z = std::min(max_z, env_z_max);
 	bool valid = false;
 	double x, y, z;
 	point3d p;
@@ -275,34 +290,71 @@ PRM* buildRoadMap(OcTree &tree,
 	bool saturate = false;
 	int count_sample = 0;
 	while (not saturate){
+		Node* n;
 		double distance_to_nn = 0;
-		int count_failure = 0;
-		while (true){
-			if (count_failure > 50){
-				saturate = true;
-				break;
-			}
-			Node* n = randomConfig(tree);
-			if (map->getSize() == 0){
-				n->new_node = true;
-				map->insert(n);
-				new_nodes.push_back(n);
-				++count_sample;
-				break;
-			}
-			Node* nn = map->nearestNeighbor(n);
-			distance_to_nn = n->p.distance(nn->p);
+		int r = (int) randomNumber(1,10);
+		// cout << r << endl;
+		if (r > 5){
+			
+			int count_failure = 0;
+			while (true){
+				if (count_failure > 50){
+					saturate = true;
+					break;
+				}
+				n = randomConfig(tree);
+				if (map->getSize() == 0){
+					n->new_node = true;
+					map->insert(n);
+					new_nodes.push_back(n);
+					++count_sample;
+					break;
+				}
+				Node* nn = map->nearestNeighbor(n);
+				distance_to_nn = n->p.distance(nn->p);
 
-			if (distance_to_nn < 0.8){
-				++count_failure;
-				delete n;
+				if (distance_to_nn < 0.8){
+					++count_failure;
+					delete n;
+				}
+				else{
+					n->new_node = true;
+					map->insert(n);
+					new_nodes.push_back(n);
+					++count_sample;
+					break;
+				}
 			}
-			else{
-				n->new_node = true;
-				map->insert(n);
-				new_nodes.push_back(n);
-				++count_sample;
-				break;
+		}
+		else{
+			int count_failure2 = 0;
+			if (start != NULL){
+				while (true){
+					if (count_failure2 > 100){
+						break;
+					}
+					double xmin = start->p.x() - 5;
+					double xmax = start->p.x() + 5;
+					double ymin = start->p.y() - 5;
+					double ymax = start->p.y() + 5;
+					double zmin = env_z_min;
+					double zmax = env_z_max;
+					std::vector<double> bbx {xmin, xmax, ymin, ymax, zmin, zmax};
+					n = randomConfigBBX(tree, bbx);
+					Node* nn = map->nearestNeighbor(n);
+					distance_to_nn = n->p.distance(nn->p);
+					if (distance_to_nn < 0.8){
+						++count_failure2;
+						delete n;
+					}
+					else{
+						n->new_node = true;
+						map->insert(n);
+						new_nodes.push_back(n);
+						++count_sample;
+						break;
+					}
+				}
 			}
 		}
 	}
