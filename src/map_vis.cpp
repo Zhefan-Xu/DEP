@@ -15,6 +15,9 @@
 #include <tf2_geometry_msgs/tf2_geometry_msgs.h>
 #include <geometry_msgs/Quaternion.h>
 #include <cmath>
+#include <chrono> 
+#include <iostream>
+using namespace std::chrono;
 using namespace message_filters;
 ros::Publisher map_vis_pub;
 ros::Publisher goal_pub;
@@ -24,7 +27,10 @@ OcTree* tree_ptr;
 PRM* roadmap;
 bool new_plan = true;
 // int num_sample = 100;
-double linear_velocity = 0.2;
+int unknown_thresh = 50;
+int count_no_increase = 0;
+int roadmap_size_last = 0;
+double linear_velocity = 0.4;
 double delta = 0.1; // criteria for chechking reach
 visualization_msgs::MarkerArray map_markers;
 std::vector<visualization_msgs::Marker> map_vis_array;
@@ -32,18 +38,26 @@ visualization_msgs::Marker path_marker;
 std::vector<Node*> path;
 int path_idx = 0;
 DEP::Goal next_goal;
+int count_iteration = 0;
+double total_comp_time = 0;
+double total_path_length = 0;
+double total_path_segment = 0;
+
 
 DEP::Goal getNextGoal(std::vector<Node*> path, int path_idx, const nav_msgs::OdometryConstPtr& odom);
 bool isReach(const nav_msgs::OdometryConstPtr& odom, DEP::Goal next_goal);
 Node* findStartNode(PRM* map, Node* current_node, OcTree& tree);
+double calculatePathLength(std::vector<Node*> path);
 
 bool reach = false;
 bool first_time = true;
 double x, y, z;
 Node current_pose;
+auto start_time_total = high_resolution_clock::now();
 void callback(const nav_msgs::OdometryConstPtr& odom, const octomap_msgs::Octomap::ConstPtr& bmap){
 	abtree = octomap_msgs::binaryMsgToMap(*bmap);
 	tree_ptr = dynamic_cast<OcTree*>(abtree);
+	tree_ptr->setResolution(RES);
 	x = odom->pose.pose.position.x;
 	y = odom->pose.pose.position.y;
 	z = odom->pose.pose.position.z;
@@ -70,8 +84,8 @@ void callback(const nav_msgs::OdometryConstPtr& odom, const octomap_msgs::Octoma
 		if (first_time){
 			roadmap = new PRM ();	
 		}
-
-		
+		cout << "==============================" << count_iteration << "==============================" << endl;
+		auto start_time = high_resolution_clock::now();
 		if (first_time){
 			roadmap = buildRoadMap(*tree_ptr, roadmap, path,  NULL, map_vis_array);
 			start = findStartNode(roadmap, &current_pose, *tree_ptr);
@@ -80,23 +94,58 @@ void callback(const nav_msgs::OdometryConstPtr& odom, const octomap_msgs::Octoma
 		else{
 			start = *(path.end()-1);
 			roadmap = buildRoadMap(*tree_ptr, roadmap, path,  start, map_vis_array);
+			if (roadmap->getSize() - roadmap_size_last < 3){
+				++count_no_increase;
+			}
+			else{
+				count_no_increase = 0;
+			}
+			if (count_no_increase >= 3){
+				auto stop_time_total = high_resolution_clock::now();
+				auto duration_total = duration_cast<microseconds>(stop_time_total - start_time_total);
+				cout << "Total: "<< duration_total.count()/1e6 << " seconds | " << "Exploration Terminates!!!!!!!!!!!" << endl;
+				cout << "Total Path Segment: " << total_path_segment << endl;
+				cout << "Total Path Length: " << total_path_length << endl;
+				cout << "Total Computation Time: " << total_comp_time << endl;
+				cout << "Avg Computation Time: " << total_comp_time/total_path_segment << endl;
+				ros::shutdown();
+				return;
+			}
+			roadmap_size_last = roadmap->getSize();
+			// if (roadmap->getMaxUnknown() < unknown_thresh){
+			// 	cout << "Exploration Terminates!!!!!!!!!!!" << endl;
+			// ros::shutdown();
 		}
+
+		
 		
 		// cout << "map size: " << map->getSize() <<endl;
 		// cout << "map vis array size: " << map_vis_array.size() << endl;
 		// for (Node* n : map->getGoalNodes()){
 		// 	print_node(*n);
 		// }
-		map_markers.markers = map_vis_array;
+		
 		// Test mulitgoal a star
 
 		// Node* start = map->nearestNeighbor(&current_pose);
 		
-		
-
-		 
 
 		path = multiGoalAStar(roadmap, start);
+		total_path_length += calculatePathLength(path);
+		total_path_segment += path.size();
+		// if (path[path.size()-1]->num_voxels < unknown_thresh){
+		// 	cout << "Exploration Terminates!!!!!!!!!!!" << endl;
+		// 	ros::shutdown();
+		// }
+		auto stop_time = high_resolution_clock::now();
+		auto duration = duration_cast<microseconds>(stop_time - start_time);
+		cout << "Time taken by this Iteration: "
+         << duration.count()/1e6 << " seconds" << endl;
+         total_comp_time += duration.count()/1e6;
+         ++count_iteration;
+         cout << "Total Computation Time: " << total_comp_time << endl;
+         cout << "Path Length So Far: " << total_path_length << endl;
+         cout << "==============================" << "END" << "==============================" << endl;
 		// print_path(path);
 
 		path_idx = 0;
@@ -107,6 +156,7 @@ void callback(const nav_msgs::OdometryConstPtr& odom, const octomap_msgs::Octoma
 		}
 		// delete roadmap;
 		// ==========================VISUALIZATION=============================
+		map_markers.markers = map_vis_array;
 		if (path.size() != 0){
 			// print_node_vector(path);
 			std::vector<geometry_msgs::Point> path_vis_vector;
@@ -153,6 +203,7 @@ int main(int argc, char** argv){
 	Synchronizer<MySyncPolicy> sync (MySyncPolicy(100), odom_sub, map_sub);
 	sync.registerCallback(boost::bind(&callback, _1, _2));
 	ros::Rate loop_rate(10);
+	
 	while (ros::ok()){
 		map_vis_pub.publish(map_markers);	
 		goal_pub.publish(next_goal);	
@@ -219,4 +270,14 @@ Node* findStartNode(PRM* map, Node* current_node, OcTree& tree){
 	}
 	cout << "No Valid Node for Start" << endl;
 	return NULL;
+}
+
+double calculatePathLength(std::vector<Node*> path){
+	int idx1 = 0;
+	double length = 0;
+	for (int idx2=1; idx2<path.size()-1; ++idx2){
+		length += path[idx2]->p.distance(path[idx1]->p);
+		++idx1;
+	}
+	return length;
 }

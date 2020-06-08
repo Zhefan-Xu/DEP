@@ -60,6 +60,8 @@ private:
 	std::vector<Node*> not_target;
 	std::priority_queue<Node*, std::vector<Node*>, GainCompareNode> goal_nodes;
 	std::vector<Node*> record;
+	int total_num_unknown;
+	int max_unknown;
 public:
 	KDTree();
 	~KDTree(); // destructor for free memory;
@@ -78,6 +80,10 @@ public:
 	void removeTopGoalNode();
 	void clearGoalPQ();
 	std::vector<Node*>& getRecord();
+	void setTotalUnknown(int _total_num_unknown);
+	int getTotalUnknown();
+	void setMaxUnknown(int _max_unknown);
+	int getMaxUnknown();
 	void clear();   // empty tree
 } PRM;
 
@@ -337,6 +343,22 @@ void KDTree::clearGoalPQ(){
 
 std::vector<Node*>& KDTree::getRecord(){
 	return this->record;
+}
+
+void KDTree::setTotalUnknown(int _total_num_unknown){
+	this->total_num_unknown = _total_num_unknown;
+}
+
+int KDTree::getTotalUnknown(){
+	return this->total_num_unknown;
+}
+
+void KDTree::setMaxUnknown(int _max_unknown){
+	this->max_unknown = _max_unknown;
+}
+
+int KDTree::getMaxUnknown(){
+	return this->max_unknown;
 }
 
 void KDTree::clear(){

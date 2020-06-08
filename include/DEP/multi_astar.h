@@ -45,6 +45,13 @@ std::vector<Node*> multiGoalAStar(PRM* map,
 		// Terminates when img_n is in close
 		while (true){
 			if (inClose(goal, close)){
+				// cout << goal->g << endl;
+				double estimate_dis = goal->p.distance(start->p);
+				// cout << estimate_dis << endl;
+				if (goal->g > 8*estimate_dis){
+					cout << "Choosing next goal because of bad estimation!" << endl;
+					break;
+				}
 				find_path = true;
 				cout << "path find success!" << endl;
 				break;

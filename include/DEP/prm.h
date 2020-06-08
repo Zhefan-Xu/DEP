@@ -5,19 +5,19 @@
 #include <visualization_msgs/Marker.h>
 
 // Environment Limit
-// cafe
-double env_x_min = -4.5;
-double env_x_max = 4.5;
-double env_y_min = -11;
-double env_y_max = 7;
-double env_z_min = 0;
-double env_z_max = 2.5;
+// // cafe
+// double env_x_min = -4.5;
+// double env_x_max = 4.5;
+// double env_y_min = -11;
+// double env_y_max = 7;
+// double env_z_min = 0;
+// double env_z_max = 2.5;
 
 
-// Define Drone Size:
-double DRONE_X = 0.5;
-double DRONE_Y = 0.5;
-double DRONE_Z = 0.1;
+// // Define Drone Size:
+// double DRONE_X = 0.5;
+// double DRONE_Y = 0.5;
+// double DRONE_Z = 0.1;
 
 // //garage
 // double env_x_min = -15;
@@ -28,12 +28,26 @@ double DRONE_Z = 0.1;
 // double env_z_max = 2.5;
 
 // // Define Drone Size:
-// double DRONE_X = 0.3;
-// double DRONE_Y = 0.3;
+// double DRONE_X = 0.4;
+// double DRONE_Y = 0.4;
 // double DRONE_Z = 0.1;
 
+// Tunnel
+double env_x_min = -8;
+double env_x_max = 8;
+double env_y_min = 0;
+double env_y_max = 35;
+double env_z_min = 0;
+double env_z_max = 7;
+
+
+// Define Drone Size:
+double DRONE_X = 0.5;
+double DRONE_Y = 0.5;
+double DRONE_Z = 0.1;
+
 // MAP RESOLUTION:
-double RES = 0.1;
+double RES = 0.2;
 
 // Depth CAMERA
 double FOV = 1.8;
@@ -76,7 +90,7 @@ bool isValid(const OcTree& tree, point3d p, bool robot_size=false){
 
 		for (double x=x_min; x<x_max+RES; x+=RES){
 			for (double y=y_min; y<y_max+RES; y+=RES){
-				for (double z=z_min; z<z_max+RES; z+=RES){
+				for (double z=z_min; z<z_max; z+=RES){
 					if (isValid(tree, point3d(x, y, z))){
 						continue;
 					}
@@ -108,11 +122,8 @@ Node* randomConfig(const OcTree& tree, bool allow_not_valid=false){
 
 	while (valid == false){
 		p.x() = randomNumber(min_x, max_x);
-		// Y>0
-		// p.y() = randomNumber(0, max_y);
 		p.y() = randomNumber(min_y, max_y);
 		p.z() = randomNumber(min_z, max_z);
-		// p.z() = randomNumber(min_z, 2.5); // garage and cafe
 		if (allow_not_valid==true){ 
 			break;
 		}
@@ -276,6 +287,7 @@ bool isNodeRequireUpdate(Node* n, std::vector<Node*> path, double& least_distanc
 }
 
 
+
 PRM* buildRoadMap(OcTree &tree, 
 				  PRM* map,
 				  std::vector<Node*> path,
@@ -288,17 +300,20 @@ PRM* buildRoadMap(OcTree &tree,
 	std::vector<Node*> new_nodes;
 	// double threshold = 500; // HardCode threshold
 	bool saturate = false;
+	bool region_saturate = false;
 	int count_sample = 0;
+	int sample_thresh = 50;
+	double distance_thresh = 0.8;
 	while (not saturate){
 		Node* n;
 		double distance_to_nn = 0;
-		int r = (int) randomNumber(1,10);
+		// int r = (int) randomNumber(1,10);
 		// cout << r << endl;
-		if (r > 5){
+		if (region_saturate or start == NULL){
 			
 			int count_failure = 0;
 			while (true){
-				if (count_failure > 50){
+				if (count_failure > sample_thresh){
 					saturate = true;
 					break;
 				}
@@ -312,8 +327,8 @@ PRM* buildRoadMap(OcTree &tree,
 				}
 				Node* nn = map->nearestNeighbor(n);
 				distance_to_nn = n->p.distance(nn->p);
-
-				if (distance_to_nn < 0.8){
+				// cout << "least distance" <<distance_to_nn << endl;
+				if (distance_to_nn < distance_thresh){
 					++count_failure;
 					delete n;
 				}
@@ -330,20 +345,61 @@ PRM* buildRoadMap(OcTree &tree,
 			int count_failure2 = 0;
 			if (start != NULL){
 				while (true){
-					if (count_failure2 > 100){
+					if (count_failure2 > sample_thresh){
+						region_saturate = true;
 						break;
 					}
+					// Bounding Box
+					double start_yaw = start->yaw;
 					double xmin = start->p.x() - 5;
 					double xmax = start->p.x() + 5;
 					double ymin = start->p.y() - 5;
 					double ymax = start->p.y() + 5;
 					double zmin = env_z_min;
 					double zmax = env_z_max;
+					if (start_yaw == 0){
+						xmin = start->p.x()-2;
+						ymax -= 2;
+						ymin += 2;
+					}
+					else if (start_yaw == pi/4){
+						xmin = start->p.x()-1;
+						ymin = start->p.y()-1;
+					}
+					else if (start_yaw == pi/2){
+						ymin = start->p.y()-2;
+						xmax -= 2;
+						xmin += 2;
+					}
+					else if (start_yaw == 3*pi/4){
+						xmax = start->p.x()+1;
+						ymin = start->p.y()-1;
+					}
+					else if (start_yaw == pi){
+						xmax = start->p.x()+2;
+						ymax -= 2;
+						ymin += 2;
+					}
+					else if (start_yaw == 5*pi/4){
+						xmax = start->p.x()+1;
+						ymax = start->p.y()+1;
+					}
+					else if (start_yaw == 3*pi/2){
+						ymax = start->p.y()+2;
+						xmax -= 2;
+						xmin += 2;
+					}
+					else if (start_yaw == 7*pi/4){
+						xmin = start->p.x()-1;
+						ymax = start->p.y()+1;
+					}
+
 					std::vector<double> bbx {xmin, xmax, ymin, ymax, zmin, zmax};
 					n = randomConfigBBX(tree, bbx);
 					Node* nn = map->nearestNeighbor(n);
 					distance_to_nn = n->p.distance(nn->p);
-					if (distance_to_nn < 0.8){
+					// cout << "least distance: " <<distance_to_nn << endl;
+					if (distance_to_nn < distance_thresh){
 						++count_failure2;
 						delete n;
 					}
@@ -365,7 +421,7 @@ PRM* buildRoadMap(OcTree &tree,
 	// Check neighbor and add edges
 	for (Node* n: new_nodes){
 		// Node* nearest_neighbor = map->nearestNeighbor(n);
-		std::vector<Node*> knn = map->kNearestNeighbor(n, 5);
+		std::vector<Node*> knn = map->kNearestNeighbor(n, 8);
 
 		for (Node* nearest_neighbor: knn){
 			bool has_collision = checkCollision(tree, n, nearest_neighbor);
@@ -400,6 +456,8 @@ PRM* buildRoadMap(OcTree &tree,
 	// Set cost and heuristics to inf
 	int count_update_node = 0;
 	int count_actual_update = 0;
+	int total_unknown = 0;
+	int max_unknown = 0;
 	for (Node* n: map->getRecord()){
 		n->g = 1000;
 		n->f = 1000;
@@ -415,8 +473,8 @@ PRM* buildRoadMap(OcTree &tree,
 			// 2. if it is already 0, leave it
 			// 3. if it is less than threshold (e.g 100), set it to zero
 			// 4. if non of those applies, recalculate it
-			double cut_off_value = 100;
-			double cut_off_distance = 1;
+			double cut_off_value = 5;
+			double cut_off_distance = 0.5;
 			if (n->num_voxels <= cut_off_value or least_distance <= cut_off_distance){
 				n->num_voxels = 0;
 			}
@@ -445,10 +503,22 @@ PRM* buildRoadMap(OcTree &tree,
 		}
 		else{
 			double distance_to_start = n->p.distance(start->p);
-			n->ig = n->num_voxels * exp(-0.1 * distance_to_start);
+			point3d direction_vector = (n->p) - (start->p);
+			point3d face_vector (cos(start->yaw), sin(start->yaw), 0);
+			double cos_angle = cos(face_vector.angleTo(direction_vector));
+			// n->ig = n->num_voxels * exp(-0.1 * distance_to_start) * exp(cos_angle);
+			n->ig = n->num_voxels * exp(-0.1 * distance_to_start); 
+		}
+		if (n->num_voxels>max_unknown){
+			max_unknown = n->num_voxels;
 		}
 		map->addGoalPQ(n);
+		total_unknown += n->num_voxels;
 	}
+	map->setTotalUnknown(total_unknown);
+	map->setMaxUnknown(max_unknown);
+	cout << "Total Number of Unknown Voxels is: " << map->getTotalUnknown() << endl;
+	cout << "Max Unknown Voxels is: " << map->getMaxUnknown() << endl;
 	cout << "Number of nodes needed updated is: " << count_update_node << endl;
 	cout << "Number of actual nodes needed updated is: " << count_actual_update << endl;
 
