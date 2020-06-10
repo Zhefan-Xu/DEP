@@ -15,12 +15,36 @@ bool inClose(Node* n, const std::unordered_set<Node*> &close){
 }
 
 std::vector<Node*> multiGoalAStar(PRM* map,
-								  Node* start)
+								  Node* start,
+								  OcTree& tree)
 {
 	// This version only finds the path to highest info gain for debug purpose
 	//i Goal Nodes
 	std::vector<Node*> path;
 	std::priority_queue<Node*, std::vector<Node*>, GainCompareNode> goal_nodes = map->getGoalNodes();
+	std::priority_queue<Node*, std::vector<Node*>, GainCompareNode> new_goal_nodes;
+	int candidate_num = 20;
+	for (int i=0; i<candidate_num; ++i){
+		Node* n = goal_nodes.top();
+		goal_nodes.pop();
+		std::map<double, int> yaw_num_voxels = calculateUnknown(tree, n, 2);
+		double best_yaw;
+		double best_num_voxels = 0;
+		for (double yaw: yaws){
+			double num_voxels = yaw_num_voxels[yaw];
+			if (num_voxels > best_num_voxels){
+				best_num_voxels = num_voxels;
+				best_yaw = yaw;
+			}
+		}
+		n->yaw = best_yaw;
+		n->num_voxels = best_num_voxels;
+		double distance_to_start = n->p.distance(start->p);
+		n->ig = n->num_voxels * exp(-0.1 * distance_to_start); 
+		
+		new_goal_nodes.push(n);
+	}
+
 	Node* goal; 
 	bool find_path = false;
 	// double best_value = 0;
@@ -32,8 +56,8 @@ std::vector<Node*> multiGoalAStar(PRM* map,
 	// }
 	while (find_path == false){
 
-		goal = goal_nodes.top();
-		goal_nodes.pop();	
+		goal = new_goal_nodes.top();
+		new_goal_nodes.pop();	
 		map->removeTopGoalNode();
 		// Open: Priority Queue
 		std::priority_queue<Node*, std::vector<Node*>, CompareNode> open;

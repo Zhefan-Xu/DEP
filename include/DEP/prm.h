@@ -19,39 +19,39 @@
 // double DRONE_Y = 0.5;
 // double DRONE_Z = 0.1;
 
-// //garage
-// double env_x_min = -15;
-// double env_x_max = 28;
-// double env_y_min = -20;
-// double env_y_max = 25;
-// double env_z_min = 0;
-// double env_z_max = 2.5;
-
-// // Define Drone Size:
-// double DRONE_X = 0.4;
-// double DRONE_Y = 0.4;
-// double DRONE_Z = 0.1;
-
-// Tunnel
-double env_x_min = -8;
-double env_x_max = 8;
-double env_y_min = 0;
-double env_y_max = 35;
+//garage
+double env_x_min = -15;
+double env_x_max = 28;
+double env_y_min = -20;
+double env_y_max = 25;
 double env_z_min = 0;
-double env_z_max = 7;
-
+double env_z_max = 2.5;
 
 // Define Drone Size:
-double DRONE_X = 0.5;
-double DRONE_Y = 0.5;
+double DRONE_X = 0.4;
+double DRONE_Y = 0.4;
 double DRONE_Z = 0.1;
+
+// // Tunnel
+// double env_x_min = -8;
+// double env_x_max = 8;
+// double env_y_min = 0;
+// double env_y_max = 35;
+// double env_z_min = 0;
+// double env_z_max = 7;
+
+
+// // Define Drone Size:
+// double DRONE_X = 0.5;
+// double DRONE_Y = 0.5;
+// double DRONE_Z = 0.1;
 
 // MAP RESOLUTION:
 double RES = 0.2;
 
 // Depth CAMERA
 double FOV = 1.8;
-double dmin = 0.00001;
+double dmin = 0;
 double dmax = 1.0;
 
 // Visualize Map
@@ -88,8 +88,8 @@ bool isValid(const OcTree& tree, point3d p, bool robot_size=false){
 		z_min = p.z() - DRONE_Z/2;
 		z_max = p.z() + DRONE_Z/2;
 
-		for (double x=x_min; x<x_max+RES; x+=RES){
-			for (double y=y_min; y<y_max+RES; y+=RES){
+		for (double x=x_min; x<x_max; x+=RES){
+			for (double y=y_min; y<y_max; y+=RES){
 				for (double z=z_min; z<z_max; z+=RES){
 					if (isValid(tree, point3d(x, y, z))){
 						continue;
@@ -159,6 +159,7 @@ Node* randomConfigBBX(const OcTree& tree, std::vector<double> &bbx){
 	point3d p;
 
 	while (valid == false){
+		
 		p.x() = randomNumber(min_x, max_x);
 		// Y>0
 		// p.y() = randomNumber(0, max_y);
@@ -194,7 +195,7 @@ bool checkCollision(OcTree& tree, Node* n1, Node* n2){
 	return false;
 }
 
-std::map<double, int> calculateUnknown(const OcTree& tree, Node* n){
+std::map<double, int> calculateUnknown(const OcTree& tree, Node* n, double dmax){
 	// Position:
 	point3d p = n->p;
 	// Possible range
@@ -435,7 +436,7 @@ PRM* buildRoadMap(OcTree &tree,
 			}
 		}
 
-		std::map<double, int> yaw_num_voxels = calculateUnknown(tree, n);
+		std::map<double, int> yaw_num_voxels = calculateUnknown(tree, n, dmax);
 		double best_yaw;
 		double best_num_voxels = 0;
 		for (double yaw: yaws){
@@ -480,7 +481,7 @@ PRM* buildRoadMap(OcTree &tree,
 			}
 			else{
 				++count_actual_update;
-				std::map<double, int> yaw_num_voxels = calculateUnknown(tree, n);
+				std::map<double, int> yaw_num_voxels = calculateUnknown(tree, n, dmax);
 				double best_yaw;
 				double best_num_voxels = 0;
 				for (double yaw: yaws){
@@ -611,6 +612,7 @@ PRM* buildRoadMap(OcTree &tree,
 
 	return map;
 }
+
 
 
 // ===================Visualization============================
