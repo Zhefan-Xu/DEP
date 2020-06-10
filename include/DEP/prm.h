@@ -5,32 +5,32 @@
 #include <visualization_msgs/Marker.h>
 
 // Environment Limit
-// // cafe
-// double env_x_min = -4.5;
-// double env_x_max = 4.5;
-// double env_y_min = -11;
-// double env_y_max = 7;
-// double env_z_min = 0;
-// double env_z_max = 2.5;
-
-
-// // Define Drone Size:
-// double DRONE_X = 0.5;
-// double DRONE_Y = 0.5;
-// double DRONE_Z = 0.1;
-
-//garage
-double env_x_min = -15;
-double env_x_max = 28;
-double env_y_min = -20;
-double env_y_max = 25;
+// cafe
+double env_x_min = -4.5;
+double env_x_max = 4.5;
+double env_y_min = -11;
+double env_y_max = 7;
 double env_z_min = 0;
 double env_z_max = 2.5;
 
+
 // Define Drone Size:
-double DRONE_X = 0.4;
-double DRONE_Y = 0.4;
+double DRONE_X = 0.5;
+double DRONE_Y = 0.5;
 double DRONE_Z = 0.1;
+
+// //garage
+// double env_x_min = -15;
+// double env_x_max = 28;
+// double env_y_min = -20;
+// double env_y_max = 25;
+// double env_z_min = 0;
+// double env_z_max = 2.5;
+
+// // Define Drone Size:
+// double DRONE_X = 0.4;
+// double DRONE_Y = 0.4;
+// double DRONE_Z = 0.1;
 
 // // Tunnel
 // double env_x_min = -8;

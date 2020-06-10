@@ -54,22 +54,22 @@ def callback(all_states, goal):
 				break
 			rospy.Rate(10).sleep()
 	else:
-		if (goal.is_last == True):
-			target_twist.linear.x = 0
-			target_twist.linear.y = 0	
-			target_twist.linear.z = 0
-			target_twist.angular.z = 0
-			target_pose = Pose()
-			target_pose.position.x = nx
-			target_pose.position.y = ny
-			target_pose.position.z = nz
-			q = quaternion_from_euler(0, 0, goal.yaw)
-			target_pose.orientation.x = q[0]
-			target_pose.orientation.y = q[1]
-			target_pose.orientation.z = q[2]
-			target_pose.orientation.w = q[3]
-		else:
-			target_pose = current_pose
+		# if (goal.is_last == True):
+		target_twist.linear.x = 0
+		target_twist.linear.y = 0	
+		target_twist.linear.z = 0
+		target_twist.angular.z = 0
+		target_pose = Pose()
+		target_pose.position.x = nx
+		target_pose.position.y = ny
+		target_pose.position.z = nz
+		q = quaternion_from_euler(0, 0, goal.yaw)
+		target_pose.orientation.x = q[0]
+		target_pose.orientation.y = q[1]
+		target_pose.orientation.z = q[2]
+		target_pose.orientation.w = q[3]
+		# else:
+			# target_pose = current_pose
 		target_state.pose = target_pose
 		target_state.twist = target_twist
 		target_state.model_name = target_model_name
