@@ -1,5 +1,7 @@
 #include <unordered_map>
 #include <queue>
+#include <chrono> 
+using namespace std::chrono;
 
 
 
@@ -19,32 +21,43 @@ std::vector<Node*> multiGoalAStar(PRM* map,
 								  OcTree& tree)
 {
 	// This version only finds the path to highest info gain for debug purpose
-	//i Goal Nodes
 	std::vector<Node*> path;
 	std::priority_queue<Node*, std::vector<Node*>, GainCompareNode> goal_nodes = map->getGoalNodes();
-	std::priority_queue<Node*, std::vector<Node*>, GainCompareNode> new_goal_nodes;
-	int candidate_num = 20;
-	for (int i=0; i<candidate_num; ++i){
-		Node* n = goal_nodes.top();
-		goal_nodes.pop();
-		std::map<double, int> yaw_num_voxels = calculateUnknown(tree, n, 2);
-		double best_yaw;
-		double best_num_voxels = 0;
-		for (double yaw: yaws){
-			double num_voxels = yaw_num_voxels[yaw];
-			if (num_voxels > best_num_voxels){
-				best_num_voxels = num_voxels;
-				best_yaw = yaw;
-			}
-		}
-		n->yaw = best_yaw;
-		n->num_voxels = best_num_voxels;
-		double distance_to_start = n->p.distance(start->p);
-		n->ig = n->num_voxels * exp(-0.1 * distance_to_start); 
-		
-		new_goal_nodes.push(n);
-	}
+	//i Goal Nodes
+	// ================Goal Reevaluation================================================
+	// auto start_time_search = high_resolution_clock::now();
 
+	// std::priority_queue<Node*, std::vector<Node*>, GainCompareNode> new_goal_nodes;
+	// int candidate_num = 20;
+	// for (int i=0; i<candidate_num; ++i){
+	// 	Node* n = goal_nodes.top();
+	// 	goal_nodes.pop();
+	// 	std::map<double, int> yaw_num_voxels = calculateUnknown(tree, n, d_goal_eval);
+	// 	double best_yaw;
+	// 	double best_num_voxels = 0;
+	// 	for (double yaw: yaws){
+	// 		double num_voxels = yaw_num_voxels[yaw];
+	// 		if (num_voxels > best_num_voxels){
+	// 			best_num_voxels = num_voxels;
+	// 			best_yaw = yaw;
+	// 		}
+	// 	}
+	// 	n->yaw = best_yaw;
+	// 	n->num_voxels = best_num_voxels;
+	// 	double distance_to_start = n->p.distance(start->p);
+	// 	point3d face_vector (cos(start->yaw), sin(start->yaw), 0);
+	// 	point3d direction_vector = (n->p) - (start->p);
+	// 	double cos_angle = cos(face_vector.angleTo(direction_vector));
+	// 	n->ig = n->num_voxels * exp(-0.1 * distance_to_start) * exp(cos_angle);
+	// 	// n->ig = n->num_voxels * exp(-0.1 * distance_to_start); 
+	// 	// n->ig = n->num_voxels/distance_to_start;
+		
+	// 	new_goal_nodes.push(n);
+	// }
+	// auto stop_time_search = high_resolution_clock::now();
+	// auto duration_search = duration_cast<microseconds>(stop_time_search - start_time_search);
+	// cout << "Time used for goal evaluation is: " << duration_search.count()/1e6 << " Seconds" << endl;
+	// ======================================================================================
 	Node* goal; 
 	bool find_path = false;
 	// double best_value = 0;
@@ -55,9 +68,14 @@ std::vector<Node*> multiGoalAStar(PRM* map,
 	// 	}
 	// }
 	while (find_path == false){
-
-		goal = new_goal_nodes.top();
-		new_goal_nodes.pop();	
+		// if (new_goal_nodes.size() == 0){
+		// 	new_goal_nodes = goal_nodes;
+		// 	cout << "no accessible goal in new goal" << endl; 
+		// }
+		// goal = new_goal_nodes.top();
+		// new_goal_nodes.pop();	
+		goal = goal_nodes.top();
+		goal_nodes.pop();
 		map->removeTopGoalNode();
 		// Open: Priority Queue
 		std::priority_queue<Node*, std::vector<Node*>, CompareNode> open;

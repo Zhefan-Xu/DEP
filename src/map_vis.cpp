@@ -29,15 +29,17 @@ OcTree* tree_ptr;
 PRM* roadmap;
 bool new_plan = true;
 // int num_sample = 100;
+int num_goal_candicates = 20;
 int unknown_thresh = 50;
 int count_no_increase = 0;
 int roadmap_size_last = 0;
 double linear_velocity = 0.2;
-double delta = 0.1; // criteria for chechking reach
+double delta = 0.01; // criteria for chechking reach
 visualization_msgs::MarkerArray map_markers;
 std::vector<visualization_msgs::Marker> map_vis_array;
 visualization_msgs::MarkerArray plan_markers;
-std::vector<visualization_msgs::Marker> plan_vis_array;
+
+
 visualization_msgs::Marker path_marker;
 std::vector<Node*> path;
 int path_idx = 0;
@@ -76,7 +78,6 @@ void callback(const nav_msgs::OdometryConstPtr& odom, const octomap_msgs::Octoma
 	current_pose.p.x() = x;
 	current_pose.p.y() = y;
 	current_pose.p.z() = z;
-	plan_vis_array.clear();
 
 	// check if we already reach the next goal
 	reach = isReach(odom, next_goal);
@@ -94,7 +95,7 @@ void callback(const nav_msgs::OdometryConstPtr& odom, const octomap_msgs::Octoma
 			}
 			else{
 				cout << "Re-evalute the Best Angle...";
-				std::map<double, int> yaw_num_voxels = calculateUnknown(*tree_ptr, path[path_idx], 5);
+				std::map<double, int> yaw_num_voxels = calculateUnknown(*tree_ptr, path[path_idx], d_eval);
 				double best_yaw;
 				double best_num_voxels = 0;
 				for (double yaw: yaws){
@@ -140,13 +141,13 @@ void callback(const nav_msgs::OdometryConstPtr& odom, const octomap_msgs::Octoma
 				start = *(path.end()-1);	
 			}
 			roadmap = buildRoadMap(*tree_ptr, roadmap, path,  start, map_vis_array);
-			if (roadmap->getSize() - roadmap_size_last < 5){
+			if (roadmap->getSize() - roadmap_size_last < 3){
 				++count_no_increase;
 			}
 			else{
 				count_no_increase = 0;
 			}
-			if (count_no_increase >= 2){
+			if (count_no_increase >= 3){
 				auto stop_time_total = high_resolution_clock::now();
 				auto duration_total = duration_cast<microseconds>(stop_time_total - start_time_total);
 				cout << "Total: "<< duration_total.count()/1e6 << " seconds | " << "Exploration Terminates!!!!!!!!!!!" << endl;
@@ -175,8 +176,11 @@ void callback(const nav_msgs::OdometryConstPtr& odom, const octomap_msgs::Octoma
 
 		// Node* start = map->nearestNeighbor(&current_pose);
 		
-
+		auto start_time_search = high_resolution_clock::now();
 		path = multiGoalAStar(roadmap, start, *tree_ptr);
+		auto stop_time_search = high_resolution_clock::now();
+		auto duration_search = duration_cast<microseconds>(stop_time_search - start_time_search);
+		cout << "Time used for search is: " << duration_search.count()/1e6 << " Seconds" << endl;
 		total_path_length += calculatePathLength(path);
 		total_path_segment += path.size();
 		// if (path[path.size()-1]->num_voxels < unknown_thresh){
@@ -233,13 +237,15 @@ void callback(const nav_msgs::OdometryConstPtr& odom, const octomap_msgs::Octoma
 		
 	}
 	else{
-
-		path = improvePath(path, path_idx, *tree_ptr, least_distance);
+		std::vector<visualization_msgs::Marker> plan_vis_array;
+		std::vector<geometry_msgs::Point> path_vis_vector;
+		plan_markers.markers = plan_vis_array;
+		// path = improvePath(path, path_idx, *tree_ptr, least_distance);
 		if (path.size() != 0){
 			// ========================Path Visualization=======================
 			// print_node_vector(path);
-			
-			std::vector<geometry_msgs::Point> path_vis_vector;
+
+
 			for (int i=0; i<path.size(); ++i){
 				if (i<path.size()-1){
 					geometry_msgs::Point p1, p2;
@@ -255,11 +261,12 @@ void callback(const nav_msgs::OdometryConstPtr& odom, const octomap_msgs::Octoma
 				// Way Point:
 				visualization_msgs::Marker way_point;
 				way_point.header.frame_id = "world";
-				way_point.id = 6666+i;
+				way_point.id = 8888+i;
 				way_point.type = visualization_msgs::Marker::SPHERE;
 				way_point.pose.position.x = path[i]->p.x();
 				way_point.pose.position.y = path[i]->p.y();
 				way_point.pose.position.z = path[i]->p.z();
+				way_point.lifetime = ros::Duration(0.5);
 				way_point.scale.x = 0.1;
 				way_point.scale.y = 0.1;
 				way_point.scale.z = 0.1;
@@ -271,7 +278,7 @@ void callback(const nav_msgs::OdometryConstPtr& odom, const octomap_msgs::Octoma
 				// Direction
 				visualization_msgs::Marker direction_ptr;
 				direction_ptr.header.frame_id = "world";
-				direction_ptr.id = 8888+i;
+				direction_ptr.id = 6666+i;
 				direction_ptr.type = visualization_msgs::Marker::ARROW;
 				direction_ptr.pose.position.x = path[i]->p.x();
 				direction_ptr.pose.position.y = path[i]->p.y();
@@ -281,7 +288,8 @@ void callback(const nav_msgs::OdometryConstPtr& odom, const octomap_msgs::Octoma
 				direction_ptr.pose.orientation.x = quat[0];
 				direction_ptr.pose.orientation.y = quat[1];
 				direction_ptr.pose.orientation.z = quat[2];
-				direction_ptr.pose.orientation.w = quat[3];;
+				direction_ptr.pose.orientation.w = quat[3];
+				direction_ptr.lifetime = ros::Duration(0.5);
 				direction_ptr.scale.x = 0.3;
 				direction_ptr.scale.y = 0.03;
 				direction_ptr.scale.z = 0.03;
@@ -306,6 +314,7 @@ void callback(const nav_msgs::OdometryConstPtr& odom, const octomap_msgs::Octoma
 			// ====================================================================
 
 		}
+
 		
 	}
 	delete abtree;
@@ -370,6 +379,12 @@ DEP::Goal getNextGoal(std::vector<Node*> path, int path_idx, const nav_msgs::Odo
 		tf2::Matrix3x3(tf_quat).getRPY(current_roll, current_pitch, current_yaw);
 		double distance_to_goal = sqrt(pow(goal.x-current_x, 2) + pow(goal.y-current_y, 2) + pow(goal.z-current_z, 2));
 		double dyaw = path[path_idx]->yaw - current_yaw;
+		if (dyaw > pi){
+			dyaw = -(2*pi - dyaw); 
+		}
+		else if (dyaw < -pi){
+			dyaw = 2*pi + dyaw;
+		}
 		goal.angular_velocity = (double) dyaw/(distance_to_goal/linear_velocity);
 	}
 	// for better simulation control: NOT SURE 
@@ -440,19 +455,40 @@ std::vector<Node*>& improvePath(std::vector<Node*> &path, int path_idx, OcTree& 
 		while (reach == false and ros::ok() and count < 50){
 			// cout << "Improving!" << endl
 			double xmin, xmax, ymin, ymax, zmin, zmax;
-			double range = 1;
+			double range = 0.3;
 			xmin = target_node->p.x() - range;
 			xmax = target_node->p.x() + range;
 			ymin = target_node->p.y() - range;
 			ymax = target_node->p.y() + range;
 			zmin = target_node->p.z() - range;
 			zmax = target_node->p.z() + range;
-			std::vector<double> bbx {xmin, xmax, ymin, ymax, zmin, zmax};
+			std::vector<double> bbx1 {xmin, xmax, ymin, ymax, zmin, zmax}; // bounding box which is near node
+			point3d midpoint = ((path[path_idx-1]->p) + (path[path_idx+1]->p));
+			midpoint.x() /= 2;
+			midpoint.y() /= 2;
+			midpoint.z() /= 2;
+			xmin = midpoint.x() - range;
+			xmax = midpoint.x() + range;
+			ymin = midpoint.y() - range;
+			ymax = midpoint.y() + range;
+			zmin = midpoint.z() - range;
+			zmax = midpoint.z() + range;
+			std::vector<double> bbx2 {xmin, xmax, ymin, ymax, zmin, zmax}; // bounding box which is near midpoint
 			// cout << tree_ptr==NULL << endl;
-			Node* n = randomConfigBBX(tree, bbx);
+			double rand_n = randomNumber(0, 10);
+			Node* n;
+			if (rand_n < 5){
+				n = randomConfigBBX(tree, bbx1);
+			}
+			else{
+				n = randomConfigBBX(tree, bbx2);
+			}
 			if (checkCollision(tree, n, path[path_idx-1]) and checkCollision(tree, n, path[path_idx+1])){
-				double new_distance = n->p.distance(path[path_idx-1]->p) + n->p.distance(path[path_idx+1]->p);
-				if (new_distance < least_distance){
+				double seg_1 = n->p.distance(path[path_idx-1]->p);
+				double seg_2 = n->p.distance(path[path_idx+1]->p);
+				double new_distance = seg_1 + seg_2;
+				double dis_thresh = 0.6;
+				if (new_distance < least_distance and seg_1 > dis_thresh and seg_2 > dis_thresh){
 					least_distance = new_distance;
 					path[path_idx] = n;
 					cout << "Better Path!" << endl;
@@ -466,11 +502,9 @@ std::vector<Node*>& improvePath(std::vector<Node*> &path, int path_idx, OcTree& 
 
 bool evaluateGoal(Node* goal, double& previous_goal_voxels){
 		cout << "Re-evalute Goal...";
-		if (previous_goal_voxels < 0){
-			previous_goal_voxels = goal->num_voxels;	
-		}
+
 		
-		std::map<double, int> yaw_num_voxels = calculateUnknown(*tree_ptr, goal, 2);
+		std::map<double, int> yaw_num_voxels = calculateUnknown(*tree_ptr, goal, d_eval);
 		double best_yaw;
 		double best_num_voxels = 0;
 		for (double yaw: yaws){
@@ -482,6 +516,10 @@ bool evaluateGoal(Node* goal, double& previous_goal_voxels){
 		}
 		goal->yaw = best_yaw;
 		goal->num_voxels = best_num_voxels;
+
+		if (previous_goal_voxels < 0){
+			previous_goal_voxels = best_num_voxels;
+		}
 
 		cout << "Current voxels: " << best_num_voxels << "| Previous Voxels: "<< previous_goal_voxels << endl;
 		if (best_num_voxels/previous_goal_voxels <= 0.3){

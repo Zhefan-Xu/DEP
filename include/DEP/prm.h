@@ -1,50 +1,10 @@
 #include <DEP/kdtree.h>
 #include <DEP/utils.h>
+#include <DEP/env.h>
 #include <random>
 #include <geometry_msgs/Point.h>
 #include <visualization_msgs/Marker.h>
 
-// Environment Limit
-// cafe
-double env_x_min = -4.5;
-double env_x_max = 4.5;
-double env_y_min = -11;
-double env_y_max = 7;
-double env_z_min = 0;
-double env_z_max = 2.5;
-
-
-// Define Drone Size:
-double DRONE_X = 0.5;
-double DRONE_Y = 0.5;
-double DRONE_Z = 0.1;
-
-// //garage
-// double env_x_min = -15;
-// double env_x_max = 28;
-// double env_y_min = -20;
-// double env_y_max = 25;
-// double env_z_min = 0;
-// double env_z_max = 2.5;
-
-// // Define Drone Size:
-// double DRONE_X = 0.4;
-// double DRONE_Y = 0.4;
-// double DRONE_Z = 0.1;
-
-// // Tunnel
-// double env_x_min = -8;
-// double env_x_max = 8;
-// double env_y_min = 0;
-// double env_y_max = 35;
-// double env_z_min = 0;
-// double env_z_max = 7;
-
-
-// // Define Drone Size:
-// double DRONE_X = 0.5;
-// double DRONE_Y = 0.5;
-// double DRONE_Z = 0.1;
 
 // MAP RESOLUTION:
 double RES = 0.2;
@@ -88,8 +48,8 @@ bool isValid(const OcTree& tree, point3d p, bool robot_size=false){
 		z_min = p.z() - DRONE_Z/2;
 		z_max = p.z() + DRONE_Z/2;
 
-		for (double x=x_min; x<x_max; x+=RES){
-			for (double y=y_min; y<y_max; y+=RES){
+		for (double x=x_min; x<x_max+ DRONE_X/2; x+=RES){
+			for (double y=y_min; y<y_max+DRONE_Y/2; y+=RES){
 				for (double z=z_min; z<z_max; z+=RES){
 					if (isValid(tree, point3d(x, y, z))){
 						continue;
@@ -195,11 +155,81 @@ bool checkCollision(OcTree& tree, Node* n1, Node* n2){
 	return false;
 }
 
+// This function is to find the neighbor of a given octree node center
+// p is octree node center, we can directly use them
+std::vector<point3d> getNeighborNode(point3d p){
+	std::vector<point3d> neighbors;
+	std::vector<double> DX {-RES, 0, +RES}; //DX
+	std::vector<double> DY {-RES, 0, +RES}; //DY
+	std::vector<double> DZ {-RES, 0, +RES}; //DZ
+	for (double dx: DX){
+		for (double dy: DY){
+			for (double dz: DZ){
+				if (dx != 0 or dy != 0 or dz != 0){
+					neighbors.push_back(point3d (p.x()+dx, p.y()+dy, p.z()+dz));
+				}
+			}
+		}
+	}
+	return neighbors;
+}
+
+// P has to be the free cell
+bool isFrontier(point3d p_request, const OcTree& tree){
+	for (point3d p: getNeighborNode(p_request)){
+		bool not_in_scope = p.x() > env_x_max or p.x() < env_x_min or p.y() > env_y_max or p.y() < env_y_min or p.z() > env_z_max or p.z() < env_z_min;
+		if (not_in_scope){
+			continue;
+		}
+		OcTreeNode* nptr = tree.search(p);
+		if (nptr != NULL and tree.isNodeOccupied(nptr) == false){
+
+			return true;
+		}
+	}
+	return false;
+}
+
+// P has to be a frontier in this function
+bool isSurfaceFrontier(point3d p_request, const OcTree& tree){
+	for (point3d p: getNeighborNode(p_request)){
+		bool not_in_scope = p.x() > env_x_max or p.x() < env_x_min or p.y() > env_y_max or p.y() < env_y_min or p.z() > env_z_max or p.z() < env_z_min;
+		if (not_in_scope){
+			continue;
+		}
+		OcTreeNode* nptr = tree.search(p);
+		if (nptr != NULL and tree.isNodeOccupied(nptr)){
+			return true;
+		}
+	}
+	
+	return false;
+}
+
+// This only count for vertical FOV not horizontal
+bool isInFOV(const OcTree& tree, point3d p, point3d u, double dmax){
+	double distance = p.distance(u);
+	if (distance >= dmin and distance <= dmax){
+		point3d direction = u - p;
+		point3d face (direction.x(), direction.y(), 0);
+		point3d v_direction = direction;
+		double vertical_angle = face.angleTo(v_direction);
+		if (vertical_angle <= FOV/2){
+			point3d end;
+			bool cast = tree.castRay(p, direction, end, true, distance);
+			if (cast == false){
+				return true;
+			}
+		}
+	}
+	return false;
+}
+
 std::map<double, int> calculateUnknown(const OcTree& tree, Node* n, double dmax){
 	// Position:
 	point3d p = n->p;
 	// Possible range
-	double xmin, xmax, ymin, ymax, zmin, zmax, distance;
+	double xmin, xmax, ymin, ymax, zmin, zmax;
 	xmin = p.x() - dmax;
 	xmax = p.x() + dmax;
 	ymin = p.y() - dmax;
@@ -220,50 +250,49 @@ std::map<double, int> calculateUnknown(const OcTree& tree, Node* n, double dmax)
 		yaw_num_voxels[yaw] = 0;
 	}
 
-	int count = 0;
-	int jump_factor = 1;
-	int jump_count = 0;
+	int count_total_unknown = 0;
+	int count_total_frontier = 0;
+	int count_total_surface_frontier = 0;
 	for (std::list<point3d>::iterator itr=node_centers.begin(); 
 		itr!=node_centers.end(); ++itr){
-		++jump_count;
-		if ((jump_count-1) % jump_factor != 0){
-			continue;
-		}
 		point3d u = *itr;
 		bool not_in_scope = u.x() > env_x_max or u.x() < env_x_min or u.y() > env_y_max or u.y() < env_y_min or u.z() > env_z_max or u.z() < env_z_min;
 		if (not_in_scope){
 			continue;
 		}
 		OcTreeNode* nptr = tree.search(u);
+		point3d direction = u - p;
+		point3d face (direction.x(), direction.y(), 0);
 		if (nptr == NULL){ // Unknown
-			distance = p.distance(u);
-
-			if (distance >= dmin and distance <= dmax){
-				point3d direction = u - p;
-				point3d face (direction.x(), direction.y(), 0);
-
-
-				point3d v_direction = direction;
-				double vertical_angle = face.angleTo(v_direction);
-
-				if (vertical_angle <= FOV/2){
-					point3d end;
-					bool cast = tree.castRay(p, direction, end, true, distance);
-					if (cast == false){
-						++count;
-						// iterate through yaw angles
-						for (double yaw: yaws){
-							point3d yaw_direction (cos(yaw), sin(yaw), 0);
-							double angle_to_yaw = face.angleTo(yaw_direction);
-							if (angle_to_yaw <= FOV/2){
-								yaw_num_voxels[yaw] += 1;
+			if (isInFOV(tree, p, u, dmax)){
+				++count_total_unknown;
+				// iterate through yaw angles
+				for (double yaw: yaws){
+					point3d yaw_direction (cos(yaw), sin(yaw), 0);
+					double angle_to_yaw = face.angleTo(yaw_direction);
+					if (angle_to_yaw <= FOV/2){
+						// Give credits to some good unknown
+						// case 1: it is a frontier unknown
+						if  (isFrontier(u, tree)){
+							yaw_num_voxels[yaw] += 2;
+							// case 2: it is a surface frontier unknown
+							if (isSurfaceFrontier(u, tree)){
+								yaw_num_voxels[yaw] += 4;
 							}
 						}
+						
+						yaw_num_voxels[yaw] += 1;
+						
 					}
 				}
 			}
 		}
 	}
+	// cout << "+----------------------------+" << endl;
+	// cout << "Total Unknown: "<< count_total_unknown << endl;
+	// cout << "Total Frontier: " << count_total_frontier << endl;
+	// cout << "Total Surface Frontier: " << count_total_surface_frontier << endl;
+	// cout << "+----------------------------+" << endl;
 
 	return yaw_num_voxels;
 }
@@ -507,8 +536,9 @@ PRM* buildRoadMap(OcTree &tree,
 			point3d direction_vector = (n->p) - (start->p);
 			point3d face_vector (cos(start->yaw), sin(start->yaw), 0);
 			double cos_angle = cos(face_vector.angleTo(direction_vector));
-			// n->ig = n->num_voxels * exp(-0.1 * distance_to_start) * exp(cos_angle);
-			n->ig = n->num_voxels * exp(-0.1 * distance_to_start); 
+			n->ig = n->num_voxels * exp(-0.1 * distance_to_start) * exp(cos_angle);
+			// n->ig = n->num_voxels * exp(-0.1 * distance_to_start);
+			// n->ig = n->num_voxels/distance_to_start; 
 		}
 		if (n->num_voxels>max_unknown){
 			max_unknown = n->num_voxels;

@@ -36,7 +36,9 @@ def callback(all_states, goal):
 	dx = nx - cx
 	dy = ny - cy
 	dz = nz - cz
-	reach = abs(dx) < 0.05 and abs(dy) < 0.05 and abs(dz) < 0.05
+	# reach = abs(dx) < 0.05 and abs(dy) < 0.05 and abs(dz) < 0.05
+	# rospy.loginfo(("Distance remain: %s", (abs(dx)**2+abs(dy)**2+abs(dz)**2)**0.5))
+	reach = (abs(dx)**2+abs(dy)**2+abs(dz)**2)**0.5 < 0.01
 	if (not reach):
 		# Next Goal Position x, y, z, rx, ry, rz, rw
 		target_twist.linear.x = goal.linear_velocity * dx/(dx**2+dy**2+dz**2+eps)**0.5	
