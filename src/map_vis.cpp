@@ -57,7 +57,6 @@ Node* findStartNode(PRM* map, Node* current_node, OcTree& tree);
 double calculatePathLength(std::vector<Node*> path);
 Node Goal2Node(DEP::Goal g);
 std::vector<Node*>& improvePath(std::vector<Node*> &path, int path_idx, OcTree & tree, double& least_distance);
-bool evaluateGoal(Node* goal, double& previous_goal_voxels);
 
 bool reach = false;
 bool first_time = true;
@@ -86,33 +85,8 @@ void callback(const nav_msgs::OdometryConstPtr& odom, const octomap_msgs::Octoma
 			new_plan = true;
 		}
 		else{
-			bool good_goal = evaluateGoal(*(path.end()-1), previous_goal_voxels);
-			if (not good_goal){
-				new_plan = true;
-				half_stop = true;
-				next_goal.is_last = true;
-				cout << "Previous Plan is Abandoned!" << endl;
-			}
-			else{
-				cout << "Re-evalute the Best Angle...";
-				std::map<double, int> yaw_num_voxels = calculateUnknown(*tree_ptr, path[path_idx], d_eval);
-				double best_yaw;
-				double best_num_voxels = 0;
-				for (double yaw: yaws){
-					double num_voxels = yaw_num_voxels[yaw];
-					if (num_voxels > best_num_voxels){
-						best_num_voxels = num_voxels;
-						best_yaw = yaw;
-					}
-				}
-				path[path_idx]->yaw = best_yaw;
-				path[path_idx]->num_voxels = best_num_voxels;
-				cout << "DONE!" << "new angle: " << best_yaw*180/pi << endl;
-				next_goal = getNextGoal(path, path_idx, odom);
-				last_goal_node = current_goal_node;
-				++path_idx;
-			}
-			least_distance = 10000;
+			next_goal = getNextGoal(path, path_idx, odom);
+			++path_idx;
 		}
 	}
 
@@ -500,32 +474,3 @@ std::vector<Node*>& improvePath(std::vector<Node*> &path, int path_idx, OcTree& 
 	}
 }
 
-bool evaluateGoal(Node* goal, double& previous_goal_voxels){
-		cout << "Re-evalute Goal...";
-
-		
-		std::map<double, int> yaw_num_voxels = calculateUnknown(*tree_ptr, goal, d_eval);
-		double best_yaw;
-		double best_num_voxels = 0;
-		for (double yaw: yaws){
-			double num_voxels = yaw_num_voxels[yaw];
-			if (num_voxels > best_num_voxels){
-				best_num_voxels = num_voxels;
-				best_yaw = yaw;
-			}
-		}
-		goal->yaw = best_yaw;
-		goal->num_voxels = best_num_voxels;
-
-		if (previous_goal_voxels < 0){
-			previous_goal_voxels = best_num_voxels;
-		}
-
-		cout << "Current voxels: " << best_num_voxels << "| Previous Voxels: "<< previous_goal_voxels << endl;
-		if (best_num_voxels/previous_goal_voxels <= 0.3){
-			return false;
-		}
-		else{
-			return true;
-		}
-}

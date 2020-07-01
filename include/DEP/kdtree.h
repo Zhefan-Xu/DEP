@@ -14,6 +14,7 @@ typedef struct Node{
 	double yaw; //radius for best yaw angle
 	double num_voxels;
 	double ig;           // information gain by distance and num voxels
+	std::map<double, int> yaw_num_voxels; // record for each angle
 	struct Node* left;   // kd-tree left
 	struct Node* right;  // kd-tree right
 	struct Node* tree_parent; // kd-tree parent

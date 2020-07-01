@@ -225,7 +225,7 @@ bool isInFOV(const OcTree& tree, point3d p, point3d u, double dmax){
 	return false;
 }
 
-std::map<double, int> calculateUnknown(const OcTree& tree, Node* n, double dmax){
+double calculateUnknown(const OcTree& tree, Node* n, double dmax){
 	// Position:
 	point3d p = n->p;
 	// Possible range
@@ -265,7 +265,23 @@ std::map<double, int> calculateUnknown(const OcTree& tree, Node* n, double dmax)
 		point3d face (direction.x(), direction.y(), 0);
 		if (nptr == NULL){ // Unknown
 			if (isInFOV(tree, p, u, dmax)){
-				++count_total_unknown;
+				bool isNodeFrontier=false, isNodeSurfaceFrontier=false; 
+				isNodeFrontier= isFrontier(u, tree);
+				if (isNodeFrontier){
+					isNodeSurfaceFrontier = isSurfaceFrontier(u, tree);
+				}
+				
+				if (isNodeFrontier == false and isNodeSurfaceFrontier == false){
+					count_total_unknown += 1;
+				}
+				else if (isNodeFrontier == true and isNodeSurfaceFrontier == false){
+					count_total_unknown += 2;
+				}
+				else if (isNodeFrontier == true and isNodeSurfaceFrontier == true){
+					count_total_unknown += 4;
+				}
+
+
 				// iterate through yaw angles
 				for (double yaw: yaws){
 					point3d yaw_direction (cos(yaw), sin(yaw), 0);
@@ -273,16 +289,15 @@ std::map<double, int> calculateUnknown(const OcTree& tree, Node* n, double dmax)
 					if (angle_to_yaw <= FOV/2){
 						// Give credits to some good unknown
 						// case 1: it is a frontier unknown
-						if  (isFrontier(u, tree)){
-							yaw_num_voxels[yaw] += 2;
-							// case 2: it is a surface frontier unknown
-							if (isSurfaceFrontier(u, tree)){
-								yaw_num_voxels[yaw] += 4;
-							}
+						if (isNodeFrontier == false and isNodeSurfaceFrontier == false){
+							yaw_num_voxels[yaw] += 1;
 						}
-						
-						yaw_num_voxels[yaw] += 1;
-						
+						else if (isNodeFrontier == true and isNodeSurfaceFrontier == false){
+							yaw_num_voxels[yaw] += 2;
+						}
+						else if (isNodeFrontier == true and isNodeSurfaceFrontier == true){
+							yaw_num_voxels[yaw] += 4;
+						}						
 					}
 				}
 			}
@@ -293,8 +308,8 @@ std::map<double, int> calculateUnknown(const OcTree& tree, Node* n, double dmax)
 	// cout << "Total Frontier: " << count_total_frontier << endl;
 	// cout << "Total Surface Frontier: " << count_total_surface_frontier << endl;
 	// cout << "+----------------------------+" << endl;
-
-	return yaw_num_voxels;
+	n->yaw_num_voxels = yaw_num_voxels;
+	return count_total_unknown;
 }
 
 
@@ -465,19 +480,8 @@ PRM* buildRoadMap(OcTree &tree,
 			}
 		}
 
-		std::map<double, int> yaw_num_voxels = calculateUnknown(tree, n, dmax);
-		double best_yaw;
-		double best_num_voxels = 0;
-		for (double yaw: yaws){
-			double num_voxels = yaw_num_voxels[yaw];
-
-			if (num_voxels > best_num_voxels){
-				best_num_voxels = num_voxels;
-				best_yaw = yaw;
-			}
-		}
-		n->yaw = best_yaw;
-		n->num_voxels = best_num_voxels;
+		double num_voxels = calculateUnknown(tree, n, dmax);
+		n->num_voxels = num_voxels;
 		map->addRecord(n);
 
 	}
@@ -510,18 +514,8 @@ PRM* buildRoadMap(OcTree &tree,
 			}
 			else{
 				++count_actual_update;
-				std::map<double, int> yaw_num_voxels = calculateUnknown(tree, n, dmax);
-				double best_yaw;
-				double best_num_voxels = 0;
-				for (double yaw: yaws){
-					double num_voxels = yaw_num_voxels[yaw];
-					if (num_voxels > best_num_voxels){
-						best_num_voxels = num_voxels;
-						best_yaw = yaw;
-					}
-				}
-				n->yaw = best_yaw;
-				n->num_voxels = best_num_voxels;
+				double num_voxels = calculateUnknown(tree, n, dmax);
+				n->num_voxels = num_voxels;
 			}
 		}
 		else{
@@ -609,9 +603,9 @@ PRM* buildRoadMap(OcTree &tree,
 			// unknown_voxel_vis_marker.color.g = 0.0;
 			// unknown_voxel_vis_marker.color.b = 0.0;
 			int num = (int) n->num_voxels;
-			int vis_angle =  n->yaw * 180/pi;
-			std::string sep = ", ";
-			unknown_voxel_vis_marker.text = std::to_string(num) + sep + std::to_string(vis_angle);
+			// int vis_angle =  n->yaw * 180/pi;
+			// std::string sep = ", ";
+			unknown_voxel_vis_marker.text = std::to_string(num); //+ sep + std::to_string(vis_angle);
 			++unknown_voxel_id;
 			map_vis_array.push_back(node_point_vis_marker);
 			map_vis_array.push_back(unknown_voxel_vis_marker);
