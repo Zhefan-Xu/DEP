@@ -35,6 +35,7 @@ int count_no_increase = 0;
 int roadmap_size_last = 0;
 double linear_velocity = 0.2;
 double delta = 0.01; // criteria for chechking reach
+double delta_angle = 0.1;
 visualization_msgs::MarkerArray map_markers;
 std::vector<visualization_msgs::Marker> map_vis_array;
 visualization_msgs::MarkerArray plan_markers;
@@ -55,6 +56,7 @@ DEP::Goal getNextGoal(std::vector<Node*> path, int path_idx, const nav_msgs::Odo
 bool isReach(const nav_msgs::OdometryConstPtr& odom, DEP::Goal next_goal);
 Node* findStartNode(PRM* map, Node* current_node, OcTree& tree);
 double calculatePathLength(std::vector<Node*> path);
+double calculatePathRotation(std::vector<Node*> path, double current_yaw);
 Node Goal2Node(DEP::Goal g);
 std::vector<Node*>& improvePath(std::vector<Node*> &path, int path_idx, OcTree & tree, double& least_distance);
 std::vector<Node*> getGoalCandidates(PRM* roadmap);
@@ -83,8 +85,10 @@ void callback(const nav_msgs::OdometryConstPtr& odom, const octomap_msgs::Octoma
 	// check if we already reach the next goal
 	reach = isReach(odom, next_goal);
 	if (reach){
+		// cout << "reach" << endl;
 		if (path_idx >= path.size()){
 			new_plan = true;
+			// cout << "new plan" << endl;
 		}
 		else{
 			next_goal = getNextGoal(path, path_idx, odom);
@@ -346,6 +350,9 @@ DEP::Goal getNextGoal(std::vector<Node*> path, int path_idx, const nav_msgs::Odo
 		tf2::convert(quat, tf_quat);
 		double current_roll, current_pitch, current_yaw;
 		tf2::Matrix3x3(tf_quat).getRPY(current_roll, current_pitch, current_yaw);
+		if (current_yaw < 0){
+			current_yaw = 2 * pi - (-current_yaw);
+		}
 		double distance_to_goal = sqrt(pow(goal.x-current_x, 2) + pow(goal.y-current_y, 2) + pow(goal.z-current_z, 2));
 		double dyaw = path[path_idx]->yaw - current_yaw;
 		if (dyaw > pi){
@@ -371,7 +378,17 @@ bool isReach(const nav_msgs::OdometryConstPtr& odom, DEP::Goal next_goal){
 	double current_x = odom->pose.pose.position.x;
 	double current_y = odom->pose.pose.position.y;
 	double current_z = odom->pose.pose.position.z;
-	return std::abs(current_x-next_goal.x) < delta and std::abs(current_y-next_goal.y) < delta and std::abs(current_z-next_goal.z) < delta;
+	geometry_msgs::Quaternion quat = odom->pose.pose.orientation;
+	tf2::Quaternion tf_quat;
+	tf2::convert(quat, tf_quat);
+	double current_roll, current_pitch, current_yaw;
+	tf2::Matrix3x3(tf_quat).getRPY(current_roll, current_pitch, current_yaw);
+	if (current_yaw < 0){
+		current_yaw = 2 * pi - (-current_yaw);
+	}
+	// cout << "current_yaw: " << current_yaw << endl;
+	// cout << "goal yaw: " << next_goal.yaw << endl;
+	return std::abs(current_x-next_goal.x) < delta and std::abs(current_y-next_goal.y) < delta and std::abs(current_z-next_goal.z) < delta and std::abs(current_yaw-next_goal.yaw) < delta_angle;
 }
 
 Node* findStartNode(PRM* map, Node* current_node, OcTree& tree){
@@ -389,11 +406,38 @@ Node* findStartNode(PRM* map, Node* current_node, OcTree& tree){
 double calculatePathLength(std::vector<Node*> path){
 	int idx1 = 0;
 	double length = 0;
-	for (int idx2=1; idx2<path.size()-1; ++idx2){
+	for (int idx2=1; idx2<=path.size()-1; ++idx2){
 		length += path[idx2]->p.distance(path[idx1]->p);
 		++idx1;
 	}
 	return length;
+}
+
+double calculatePathRotation(std::vector<Node*> path, double current_yaw){
+	int idx1 = 0;
+	double rotation = 0;
+	double start_yaw = path[idx1]->yaw;
+	double dyaw_start = start_yaw - current_yaw;
+	if (std::abs(dyaw_start) < pi){
+		rotation += std::abs(dyaw_start);
+	}
+	else{
+		rotation += 2*pi - std::abs(dyaw_start);
+	}
+
+	for (int idx2=1; idx2<=path.size()-1; ++idx2){
+		double this_yaw = path[idx1]->yaw;
+		double next_yaw = path[idx2]->yaw;
+		double dyaw = next_yaw - this_yaw;
+		if (std::abs(dyaw) < pi){
+			rotation += std::abs(dyaw);
+		}
+		else{
+			rotation += 2*pi - std::abs(dyaw);
+		}
+		++idx1;
+	}
+	return rotation;
 }
 
 Node Goal2Node(DEP::Goal g){
@@ -472,6 +516,7 @@ std::vector<Node*>& improvePath(std::vector<Node*> &path, int path_idx, OcTree& 
 std::vector<Node*> getGoalCandidates(PRM* roadmap){
 	std::vector<Node*> goal_candidates;
 	double thresh = 0.1;
+	double min_number = 10;
 	double max_num_voxels = 0;
 	// Go over node which has number of voxels larger than 0.5 maximum
 	bool first_node = true;
@@ -488,6 +533,12 @@ std::vector<Node*> getGoalCandidates(PRM* roadmap){
 			max_num_voxels = n->num_voxels;
 			first_node = false;
 		}
+		goal_candidates.push_back(n);
+	}
+
+	if (goal_candidates.size() < min_number){
+		Node* n = goal_nodes.top();
+		goal_nodes.pop();
 		goal_candidates.push_back(n);
 	}
 
@@ -537,6 +588,9 @@ double interpolateNumVoxels(Node* n, double yaw){
 
 // Genrate Path to all candidates and evaluate them, then pick the best path
 std::vector<Node*> findBestPath(PRM* roadmap, Node* start, std::vector<Node*> goal_candidates, OcTree& tree){
+	double linear_velocity = 0.3;
+	double angular_velocity = 0.8;
+	double current_yaw = start->yaw;
 	std::vector<Node*> final_path;
 	// 1. Generate all the path
 	std::vector<std::vector<Node*>> path_vector;
@@ -569,13 +623,28 @@ std::vector<Node*> findBestPath(PRM* roadmap, Node* start, std::vector<Node*> go
 				Node* next_node = candidate_path[i+1];
 				point3d direction = next_node->p - this_node->p;
 				double node_yaw = atan2(direction.y(), direction.x());
+				if (node_yaw < 0){
+					node_yaw = 2*pi - (-node_yaw);
+				}
 				total_num_voxels += interpolateNumVoxels(this_node, node_yaw);
 			}
 		}
 
 		if (candidate_path.size() != 0){
+			for (int i=0; i<candidate_path.size()-1; ++i){
+				Node* this_node = candidate_path[i];
+				Node* next_node = candidate_path[i+1];
+				point3d direction = next_node->p - this_node->p;
+				double node_yaw = atan2(direction.y(), direction.x());
+				if (node_yaw < 0){
+					node_yaw = 2*pi - (-node_yaw);
+				}
+				candidate_path[i]->yaw = node_yaw;
+			}
 			double total_path_length = calculatePathLength(candidate_path);
-			score = total_num_voxels/total_path_length;
+			double total_path_rotation = calculatePathRotation(candidate_path, current_yaw);
+			double total_time = total_path_length/linear_velocity + total_path_rotation/angular_velocity;
+			score = total_num_voxels/total_time;
 		}
 		path_score.push_back(score);
 		path_vector.push_back(candidate_path);
@@ -599,6 +668,9 @@ std::vector<Node*> findBestPath(PRM* roadmap, Node* start, std::vector<Node*> go
 		Node* next_node = final_path[i+1];
 		point3d direction = next_node->p - this_node->p;
 		double node_yaw = atan2(direction.y(), direction.x());
+		if (node_yaw < 0){
+			node_yaw = 2*pi - (-node_yaw);
+		}
 		final_path[i]->yaw = node_yaw;
 	}
 	cout << "final path size: " << final_path.size() << endl;

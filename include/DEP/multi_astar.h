@@ -30,17 +30,19 @@ std::vector<Node*> AStar(PRM* map,
 	open.push(start);
 	// Close: unordered set
 	std::unordered_set<Node*> close;
-
+	bool find_path = false;
 	// Terminates when img_n is in close
 	while (true){
 		if (inClose(goal, close)){
-			cout << "path find success!" << endl;
+			find_path = true;
+			// cout << "path find success!" << endl;
 			break;
 		}
 		if (open.size() == 0){
 			// cout << "Try next goal!" << endl;
 			// cout << "This gain: " << goal->num_voxels << endl;
-			cout << "No valid path" << endl;
+			find_path = false;
+			// cout << "No valid path" << endl;
 			break;
 		}
 		Node* current_node = open.top();
@@ -70,7 +72,7 @@ std::vector<Node*> AStar(PRM* map,
 	}
 	// Backtracking:
 	Node* ptr = goal;
-	while (ptr != NULL and open.size() != 0){
+	while (ptr != NULL and find_path){
 		path.push_back(ptr);	
 		ptr = ptr->parent;
 	}

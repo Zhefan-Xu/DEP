@@ -1,5 +1,5 @@
 // Environment Limit
-// cafe
+// // cafe
 double env_x_min = -4.5;
 double env_x_max = 4.5;
 double env_y_min = -11;
@@ -50,8 +50,8 @@ double DRONE_Z = 0.1;
 
 
 // // Define Drone Size:
-// double DRONE_X = 0.5;
-// double DRONE_Y = 0.5;
+// double DRONE_X = 0.2;
+// double DRONE_Y = 0.2;
 // double DRONE_Z = 0.1;
 
 double d_goal_eval = 2;
