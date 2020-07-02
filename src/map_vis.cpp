@@ -146,9 +146,6 @@ void callback(const nav_msgs::OdometryConstPtr& odom, const octomap_msgs::Octoma
 		
 		auto start_time_search = high_resolution_clock::now();
 		std::vector<Node*> goal_candidates = getGoalCandidates(roadmap);
-		for (Node* n: goal_candidates){
-			cout << "goal num voxels: " << n->num_voxels << endl;
-		}
 		path = findBestPath(roadmap, start, goal_candidates, *tree_ptr);
 		auto stop_time_search = high_resolution_clock::now();
 		auto duration_search = duration_cast<microseconds>(stop_time_search - start_time_search);
@@ -474,7 +471,7 @@ std::vector<Node*>& improvePath(std::vector<Node*> &path, int path_idx, OcTree& 
 
 std::vector<Node*> getGoalCandidates(PRM* roadmap){
 	std::vector<Node*> goal_candidates;
-	double thresh = 1;
+	double thresh = 0.1;
 	double max_num_voxels = 0;
 	// Go over node which has number of voxels larger than 0.5 maximum
 	bool first_node = true;
@@ -519,22 +516,44 @@ bool inRange(Node* n, Node* n_next, double yaw){
 	}
 }
 
+
+// Helper Function:
+double interpolateNumVoxels(Node* n, double yaw){
+	// Find the interval then interpolate
+	double min_yaw, max_yaw;
+	for (int i=0; i<yaws.size()-1; ++i){
+		if (yaw > yaws[i] and y < yaws[i+1]){
+			min_yaw = yaws[i];
+			max_yaw = yaws[i+1];
+			break;
+		}
+	}
+
+	// Interpolate
+	std::map<double, int> yaw_num_voxels = n->yaw_num_voxels;
+	double num_voxels = yaw_num_voxels[min_yaw] + (yaw - min_yaw) * (yaw_num_voxels[max_yaw]-yaw_num_voxels[min_yaw])/(max_yaw - min_yaw);
+	return num_voxels;
+}
+
 // Genrate Path to all candidates and evaluate them, then pick the best path
 std::vector<Node*> findBestPath(PRM* roadmap, Node* start, std::vector<Node*> goal_candidates, OcTree& tree){
 	std::vector<Node*> final_path;
 	// 1. Generate all the path
 	std::vector<std::vector<Node*>> path_vector;
+	std::vector<double> path_score; // Score = num_voxels/time
 	std::vector<Node*> candidate_path;
 	for (Node* goal: goal_candidates){
 		candidate_path = AStar(roadmap, start, goal, tree);
 		// find the appropriate yaw for nodes:
 	  		// 1. sensor range from node in this yaw can see next node
-	  		// 2. Optimize num of voxels
+		double score = 0;
+		double total_num_voxels = 0;
 		for (int i=0; i<candidate_path.size(); ++i){
 			// last one
 			if (i == candidate_path.size()-1){
 				double max_yaw;
 				double max_voxels = 0;
+				calculateUnknown(tree, candidate_path[i], dmax);
 				for (double yaw: yaws){
 					if (candidate_path[i]->yaw_num_voxels[yaw] > max_voxels){
 						max_voxels = candidate_path[i]->yaw_num_voxels[yaw];
@@ -542,6 +561,7 @@ std::vector<Node*> findBestPath(PRM* roadmap, Node* start, std::vector<Node*> go
 					}
 				}
 				candidate_path[i]->yaw = max_yaw;
+				total_num_voxels += max_voxels;
 			}
 			else{
 
@@ -549,21 +569,39 @@ std::vector<Node*> findBestPath(PRM* roadmap, Node* start, std::vector<Node*> go
 				Node* next_node = candidate_path[i+1];
 				point3d direction = next_node->p - this_node->p;
 				double node_yaw = atan2(direction.y(), direction.x());
-				candidate_path[i]->yaw = node_yaw;
+				total_num_voxels += interpolateNumVoxels(this_node, node_yaw);
 			}
 		}
 
-
+		if (candidate_path.size() != 0){
+			double total_path_length = calculatePathLength(candidate_path);
+			score = total_num_voxels/total_path_length;
+		}
+		path_score.push_back(score);
 		path_vector.push_back(candidate_path);
+	}
+	// cout << "check 1" << endl;
+	double best_score = 0;
+	double best_idx = 0;
+	for (int i=0; i<path_vector.size(); ++i){
+		if (path_score[i] > best_score){
+			best_score = path_score[i];
+			best_idx = i;
+		}
 	}
 
 
+	// cout << "check 2" << endl;
 
-
-
-	// 
-
-	final_path = path_vector[0];
+	final_path = path_vector[best_idx];
+	for (int i=0; i<final_path.size()-1; ++i){
+		Node* this_node = final_path[i];
+		Node* next_node = final_path[i+1];
+		point3d direction = next_node->p - this_node->p;
+		double node_yaw = atan2(direction.y(), direction.x());
+		final_path[i]->yaw = node_yaw;
+	}
+	cout << "final path size: " << final_path.size() << endl;
 	return final_path;
 }
 

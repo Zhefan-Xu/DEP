@@ -40,6 +40,7 @@ std::vector<Node*> AStar(PRM* map,
 		if (open.size() == 0){
 			// cout << "Try next goal!" << endl;
 			// cout << "This gain: " << goal->num_voxels << endl;
+			cout << "No valid path" << endl;
 			break;
 		}
 		Node* current_node = open.top();
