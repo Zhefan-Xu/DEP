@@ -46,7 +46,7 @@ struct CompareNode{
 
 struct GainCompareNode{
 	bool operator()(Node* n1, Node* n2){
-		return n1->ig < n2->ig;
+		return n1->num_voxels < n2->num_voxels;
 	}
 };
 //======================================================================

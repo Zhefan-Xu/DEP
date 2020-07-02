@@ -19,8 +19,16 @@ bool VISUALIZE_MAP = true;
 // static std::vector<geometry_msgs::Point> DEFAULT_VECTOR;
 static std::vector<visualization_msgs::Marker> DEFAULT_VECTOR;
 
-std::vector<double> yaws {0, pi/4, pi/2, 3*pi/4, pi, 5*pi/4, 3*pi/2, 7*pi/4};
-
+std::vector<double> generate_yaws(int n){
+	std::vector<double> yaws;
+	for (int i=0; i<n; ++i){
+		yaws.push_back(i*2*pi/n);
+	}
+	return yaws;
+}
+// std::vector<double> yaws {0, pi/4, pi/2, 3*pi/4, pi, 5*pi/4, 3*pi/2, 7*pi/4};
+// std::vector<double> yaws {0, pi/8 ,pi/4, pi*3/8, pi/2, pi*5/8, 3*pi/4, pi*7/8, pi, pi*9/8,5*pi/4, pi*11/8,3*pi/2, pi*13/8,7*pi/4, pi*15/8};
+std::vector<double> yaws = generate_yaws(32);
 // Random Generator
 std::random_device rd;
 std::mt19937 mt(rd());
@@ -332,6 +340,19 @@ bool isNodeRequireUpdate(Node* n, std::vector<Node*> path, double& least_distanc
 }
 
 
+// Ensure the vertical sensor range condition for node connection
+bool sensorRangeCondition(Node* n1, Node* n2){
+	point3d direction = n2->p - n1->p;
+	point3d projection (direction.x(), direction.y(), 0);
+	double vertical_angle = projection.angleTo(direction);
+	if (vertical_angle < FOV/2){
+		return true;
+	}
+	else{
+		return false;
+	}
+}
+
 
 PRM* buildRoadMap(OcTree &tree, 
 				  PRM* map,
@@ -466,23 +487,27 @@ PRM* buildRoadMap(OcTree &tree,
 	// Check neighbor and add edges
 	for (Node* n: new_nodes){
 		// Node* nearest_neighbor = map->nearestNeighbor(n);
-		std::vector<Node*> knn = map->kNearestNeighbor(n, 8);
+		std::vector<Node*> knn = map->kNearestNeighbor(n, 15);
 
 		for (Node* nearest_neighbor: knn){
 			bool has_collision = checkCollision(tree, n, nearest_neighbor);
 			double distance_to_knn = n->p.distance(nearest_neighbor->p);
-			if (distance_to_knn < 0.8){
-				cout << "bad node" << endl;
-			}
-			if (has_collision == false and distance_to_knn < 1.5){
+			bool range_condition = sensorRangeCondition(n, nearest_neighbor) and sensorRangeCondition(nearest_neighbor, n);
+			// if (distance_to_knn < 0.8){
+			// 	cout << "bad node" << endl;
+			// }
+			if (has_collision == false and distance_to_knn < 1.5 and range_condition == true){
 				n->adjNodes.insert(nearest_neighbor);
 				nearest_neighbor->adjNodes.insert(n); 
 			}
 		}
 
-		double num_voxels = calculateUnknown(tree, n, dmax);
-		n->num_voxels = num_voxels;
-		map->addRecord(n);
+
+		if (n->adjNodes.size() != 0){
+			map->addRecord(n);
+			double num_voxels = calculateUnknown(tree, n, dmax);
+			n->num_voxels = num_voxels;
+		}
 
 	}
 
@@ -522,18 +547,7 @@ PRM* buildRoadMap(OcTree &tree,
 			n->update = false;
 		}
 		n->new_node = false;
-		if (start == NULL){
-			n->ig = n->num_voxels;
-		}
-		else{
-			double distance_to_start = n->p.distance(start->p);
-			point3d direction_vector = (n->p) - (start->p);
-			point3d face_vector (cos(start->yaw), sin(start->yaw), 0);
-			double cos_angle = cos(face_vector.angleTo(direction_vector));
-			n->ig = n->num_voxels * exp(-0.1 * distance_to_start) * exp(cos_angle);
-			// n->ig = n->num_voxels * exp(-0.1 * distance_to_start);
-			// n->ig = n->num_voxels/distance_to_start; 
-		}
+
 		if (n->num_voxels>max_unknown){
 			max_unknown = n->num_voxels;
 		}
