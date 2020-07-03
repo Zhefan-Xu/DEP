@@ -61,6 +61,7 @@ Node Goal2Node(DEP::Goal g);
 std::vector<Node*>& improvePath(std::vector<Node*> &path, int path_idx, OcTree & tree, double& least_distance);
 std::vector<Node*> getGoalCandidates(PRM* roadmap);
 std::vector<Node*> findBestPath(PRM* roadmap, Node* start, std::vector<Node*> goal_candidates, OcTree& tree);
+bool checkNextGoalCollision(Node current_pose, DEP::Goal next_goal, OcTree& tree);
 
 bool reach = false;
 bool first_time = true;
@@ -81,6 +82,14 @@ void callback(const nav_msgs::OdometryConstPtr& odom, const octomap_msgs::Octoma
 	current_pose.p.x() = x;
 	current_pose.p.y() = y;
 	current_pose.p.z() = z;
+
+	// Check for collision
+	if (not first_time){
+		bool has_collision = checkNextGoalCollision(current_pose, next_goal, *tree_ptr);
+		if (has_collision){
+			cout << "COLLISION HAPPENS! NEED REPLANNING" << endl;
+		}
+	}
 
 	// check if we already reach the next goal
 	reach = isReach(odom, next_goal);
@@ -573,7 +582,7 @@ double interpolateNumVoxels(Node* n, double yaw){
 	// Find the interval then interpolate
 	double min_yaw, max_yaw;
 	for (int i=0; i<yaws.size()-1; ++i){
-		if (yaw > yaws[i] and y < yaws[i+1]){
+		if (yaw > yaws[i] and yaw < yaws[i+1]){
 			min_yaw = yaws[i];
 			max_yaw = yaws[i+1];
 			break;
@@ -583,6 +592,11 @@ double interpolateNumVoxels(Node* n, double yaw){
 	// Interpolate
 	std::map<double, int> yaw_num_voxels = n->yaw_num_voxels;
 	double num_voxels = yaw_num_voxels[min_yaw] + (yaw - min_yaw) * (yaw_num_voxels[max_yaw]-yaw_num_voxels[min_yaw])/(max_yaw - min_yaw);
+	// cout << "max angle: " << max_yaw << endl;
+	// cout << "min_angle: " << min_yaw << endl;
+	// cout << "yaw: " << yaw << endl;
+	// cout << "max: " << yaw_num_voxels[max_yaw] << endl;
+	// cout << "min: " << yaw_num_voxels[min_yaw] << endl;
 	return num_voxels;
 }
 
@@ -596,18 +610,20 @@ std::vector<Node*> findBestPath(PRM* roadmap, Node* start, std::vector<Node*> go
 	std::vector<std::vector<Node*>> path_vector;
 	std::vector<double> path_score; // Score = num_voxels/time
 	std::vector<Node*> candidate_path;
+	int count_path_id = 0;
 	for (Node* goal: goal_candidates){
 		candidate_path = AStar(roadmap, start, goal, tree);
 		// find the appropriate yaw for nodes:
 	  		// 1. sensor range from node in this yaw can see next node
 		double score = 0;
 		double total_num_voxels = 0;
+		double total_unknwon;
 		for (int i=0; i<candidate_path.size(); ++i){
 			// last one
 			if (i == candidate_path.size()-1){
-				double max_yaw;
+				double max_yaw = 0;
 				double max_voxels = 0;
-				calculateUnknown(tree, candidate_path[i], dmax);
+				total_unknwon = calculateUnknown(tree, candidate_path[i], dmax);
 				for (double yaw: yaws){
 					if (candidate_path[i]->yaw_num_voxels[yaw] > max_voxels){
 						max_voxels = candidate_path[i]->yaw_num_voxels[yaw];
@@ -627,6 +643,7 @@ std::vector<Node*> findBestPath(PRM* roadmap, Node* start, std::vector<Node*> go
 					node_yaw = 2*pi - (-node_yaw);
 				}
 				total_num_voxels += interpolateNumVoxels(this_node, node_yaw);
+				// cout << "interpolate result: " << interpolateNumVoxels(this_node, node_yaw) << endl;
 			}
 		}
 
@@ -645,9 +662,11 @@ std::vector<Node*> findBestPath(PRM* roadmap, Node* start, std::vector<Node*> go
 			double total_path_rotation = calculatePathRotation(candidate_path, current_yaw);
 			double total_time = total_path_length/linear_velocity + total_path_rotation/angular_velocity;
 			score = total_num_voxels/total_time;
+			// cout << "Path " << count_path_id << " score: " << score << " length: " << total_path_length << " Rotation: " << total_path_rotation << " Time: " << total_time <<  " Voxels: " << total_num_voxels << endl;
 		}
 		path_score.push_back(score);
 		path_vector.push_back(candidate_path);
+		++count_path_id;
 	}
 	// cout << "check 1" << endl;
 	double best_score = 0;
@@ -673,7 +692,13 @@ std::vector<Node*> findBestPath(PRM* roadmap, Node* start, std::vector<Node*> go
 		}
 		final_path[i]->yaw = node_yaw;
 	}
+	cout << "final id: " << best_idx << endl;
 	cout << "final path size: " << final_path.size() << endl;
 	return final_path;
+}
+
+bool checkNextGoalCollision(Node current_node, DEP::Goal next_goal, OcTree& tree){
+	Node goal_node (point3d (next_goal.x, next_goal.y , next_goal.z));
+	return checkCollision(tree, &current_node, &goal_node); // true if there is collision otherwise no collision
 }
 
