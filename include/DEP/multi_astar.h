@@ -16,10 +16,20 @@ bool inClose(Node* n, const std::unordered_set<Node*> &close){
 	}
 }
 
+bool is_collision_node(Node* n, Node* collision_node){
+	if (n->p.x() == collision_node->p.x() and n->p.y() == collision_node->p.y() and n->p.z() == collision_node->p.z()){
+		return true;
+	}
+	else{
+		return false;
+	}
+}
+
 std::vector<Node*> AStar(PRM* map,
 						 Node* start,
 						 Node* goal, 
-						 OcTree& tree)
+						 OcTree& tree,
+						 bool replan=false)
 {
 	// This version only finds the path to highest info gain for debug purpose
 	std::vector<Node*> path;
@@ -58,6 +68,13 @@ std::vector<Node*> AStar(PRM* map,
 		for (Node* neighbor_node: current_node->adjNodes){
 			// Node must be not in close
 			if (not inClose(neighbor_node, close)){
+				if (replan){
+					bool has_collision = checkCollision(tree, current_node, neighbor_node);
+					if (has_collision){
+						continue;
+					}
+				}
+				
 				double cost = current_node->g + current_node->p.distance(neighbor_node->p);
 				// if we have better g value, we update:
 				if (cost < neighbor_node->g){

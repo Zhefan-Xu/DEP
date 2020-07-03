@@ -28,6 +28,7 @@ AbstractOcTree* abtree;
 OcTree* tree_ptr;
 PRM* roadmap;
 bool new_plan = true;
+bool replan = false;
 // int num_sample = 100;
 int num_goal_candicates = 20;
 int unknown_thresh = 50;
@@ -60,7 +61,7 @@ double calculatePathRotation(std::vector<Node*> path, double current_yaw);
 Node Goal2Node(DEP::Goal g);
 std::vector<Node*>& improvePath(std::vector<Node*> &path, int path_idx, OcTree & tree, double& least_distance);
 std::vector<Node*> getGoalCandidates(PRM* roadmap);
-std::vector<Node*> findBestPath(PRM* roadmap, Node* start, std::vector<Node*> goal_candidates, OcTree& tree);
+std::vector<Node*> findBestPath(PRM* roadmap, Node* start, std::vector<Node*> goal_candidates, OcTree& tree, bool replan);
 bool checkNextGoalCollision(Node current_pose, DEP::Goal next_goal, OcTree& tree);
 
 bool reach = false;
@@ -69,7 +70,7 @@ bool half_stop = false;
 double x, y, z;
 Node current_pose;
 Node last_goal_node (point3d (-100, -100, -100));
-Node current_goal_node;
+Node collision_node;
 auto start_time_total = high_resolution_clock::now();
 double least_distance = 10000;
 void callback(const nav_msgs::OdometryConstPtr& odom, const octomap_msgs::Octomap::ConstPtr& bmap){
@@ -88,6 +89,10 @@ void callback(const nav_msgs::OdometryConstPtr& odom, const octomap_msgs::Octoma
 		bool has_collision = checkNextGoalCollision(current_pose, next_goal, *tree_ptr);
 		if (has_collision){
 			cout << "COLLISION HAPPENS! NEED REPLANNING" << endl;
+			collision_node.p.x() = next_goal.x;
+			collision_node.p.y() = next_goal.y;
+			collision_node.p.z() = next_goal.z;
+			replan = true;
 		}
 	}
 
@@ -159,7 +164,7 @@ void callback(const nav_msgs::OdometryConstPtr& odom, const octomap_msgs::Octoma
 		
 		auto start_time_search = high_resolution_clock::now();
 		std::vector<Node*> goal_candidates = getGoalCandidates(roadmap);
-		path = findBestPath(roadmap, start, goal_candidates, *tree_ptr);
+		path = findBestPath(roadmap, start, goal_candidates, *tree_ptr, replan);
 		auto stop_time_search = high_resolution_clock::now();
 		auto duration_search = duration_cast<microseconds>(stop_time_search - start_time_search);
 		cout << "Time used for search is: " << duration_search.count()/1e6 << " Seconds" << endl;
@@ -186,6 +191,7 @@ void callback(const nav_msgs::OdometryConstPtr& odom, const octomap_msgs::Octoma
 			reach = false;
 			++path_idx;
 		}
+		new_plan = false;
 		// delete roadmap;
 		// ==========================VISUALIZATION=============================
 		map_markers.markers = map_vis_array;
@@ -213,10 +219,59 @@ void callback(const nav_msgs::OdometryConstPtr& odom, const octomap_msgs::Octoma
 			path_marker.color.a = 1.0;
 			// map_vis_array.push_back(path_marker);
 			map_markers.markers = map_vis_array;
-			new_plan = false;
+			
 		}
 		// ====================================================================
 		
+	}
+	else if (replan){
+		// get goal candidates
+		std::vector<Node*> goal_candidates = getGoalCandidates(roadmap);
+
+		// Find start 
+		Node* start = findStartNode(roadmap, &current_pose, *tree_ptr); 
+
+		// Find best path based on collision node
+		path = findBestPath(roadmap, start, goal_candidates, *tree_ptr, replan);
+
+
+		path_idx = 0;
+		if (path.size() != 0){
+			next_goal = getNextGoal(path, path_idx, odom);
+			reach = false;
+			++path_idx;
+		}
+		replan = false;
+		// delete roadmap;
+		// ==========================VISUALIZATION=============================
+		map_markers.markers = map_vis_array;
+		if (path.size() != 0){
+			// print_node_vector(path);
+			std::vector<geometry_msgs::Point> path_vis_vector;
+			for (int i=0; i<path.size()-1; ++i){
+				geometry_msgs::Point p1, p2;
+				p1.x = path[i]->p.x();
+				p1.y = path[i]->p.y();
+				p1.z = path[i]->p.z();
+				p2.x = path[i+1]->p.x();
+				p2.y = path[i+1]->p.y();
+				p2.z = path[i+1]->p.z();
+				path_vis_vector.push_back(p1);
+				path_vis_vector.push_back(p2);
+			}
+			path_marker.header.frame_id = "world";
+			path_marker.points = path_vis_vector;
+			path_marker.id = 1000000;
+			path_marker.type = visualization_msgs::Marker::LINE_LIST;
+			path_marker.scale.x = 0.05;
+			path_marker.scale.y = 0.05;
+			path_marker.scale.z = 0.05;
+			path_marker.color.a = 1.0;
+			// map_vis_array.push_back(path_marker);
+			map_markers.markers = map_vis_array;
+			
+		}
+		// ====================================================================
 	}
 	else{
 		std::vector<visualization_msgs::Marker> plan_vis_array;
@@ -601,7 +656,7 @@ double interpolateNumVoxels(Node* n, double yaw){
 }
 
 // Genrate Path to all candidates and evaluate them, then pick the best path
-std::vector<Node*> findBestPath(PRM* roadmap, Node* start, std::vector<Node*> goal_candidates, OcTree& tree){
+std::vector<Node*> findBestPath(PRM* roadmap, Node* start, std::vector<Node*> goal_candidates, OcTree& tree, bool replan=false){
 	double linear_velocity = 0.3;
 	double angular_velocity = 0.8;
 	double current_yaw = start->yaw;
@@ -612,7 +667,9 @@ std::vector<Node*> findBestPath(PRM* roadmap, Node* start, std::vector<Node*> go
 	std::vector<Node*> candidate_path;
 	int count_path_id = 0;
 	for (Node* goal: goal_candidates){
-		candidate_path = AStar(roadmap, start, goal, tree);
+		candidate_path = AStar(roadmap, start, goal, tree, replan);	
+
+		
 		// find the appropriate yaw for nodes:
 	  		// 1. sensor range from node in this yaw can see next node
 		double score = 0;
@@ -692,8 +749,8 @@ std::vector<Node*> findBestPath(PRM* roadmap, Node* start, std::vector<Node*> go
 		}
 		final_path[i]->yaw = node_yaw;
 	}
-	cout << "final id: " << best_idx << endl;
-	cout << "final path size: " << final_path.size() << endl;
+	// cout << "final id: " << best_idx << endl;
+	// cout << "final path size: " << final_path.size() << endl;
 	return final_path;
 }
 
