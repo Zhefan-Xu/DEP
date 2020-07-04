@@ -56,8 +56,8 @@ bool isValid(const OcTree& tree, point3d p, bool robot_size=false){
 		z_min = p.z() - DRONE_Z/2;
 		z_max = p.z() + DRONE_Z/2;
 
-		for (double x=x_min; x<x_max; x+=RES){
-			for (double y=y_min; y<y_max; y+=RES){
+		for (double x=x_min; x<=x_max+DRONE_X/2; x+=RES){
+			for (double y=y_min; y<=y_max+DRONE_X/2; y+=RES){
 				for (double z=z_min; z<z_max; z+=RES){
 					if (isValid(tree, point3d(x, y, z))){
 						continue;
@@ -283,10 +283,10 @@ double calculateUnknown(const OcTree& tree, Node* n, double dmax){
 					count_total_unknown += 1;
 				}
 				else if (isNodeFrontier == true and isNodeSurfaceFrontier == false){
-					count_total_unknown += 5;
+					count_total_unknown += 2;
 				}
 				else if (isNodeFrontier == true and isNodeSurfaceFrontier == true){
-					count_total_unknown += 10;
+					count_total_unknown += 4;
 				}
 
 
@@ -301,10 +301,10 @@ double calculateUnknown(const OcTree& tree, Node* n, double dmax){
 							yaw_num_voxels[yaw] += 1;
 						}
 						else if (isNodeFrontier == true and isNodeSurfaceFrontier == false){
-							yaw_num_voxels[yaw] += 5;
+							yaw_num_voxels[yaw] += 2;
 						}
 						else if (isNodeFrontier == true and isNodeSurfaceFrontier == true){
-							yaw_num_voxels[yaw] += 10;
+							yaw_num_voxels[yaw] += 4;
 						}						
 					}
 				}

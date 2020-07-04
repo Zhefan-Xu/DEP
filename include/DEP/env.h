@@ -40,18 +40,18 @@
 // double DRONE_Y = 0.6;
 // double DRONE_Z = 0.1;
 
-// // Apartment
+// Apartment
 double env_x_min = -15;
 double env_x_max = 15;
-double env_y_min = -10;
-double env_y_max = 13;
-double env_z_min = 0;
+double env_y_min = -15;
+double env_y_max = 20;
+double env_z_min = 0.2;
 double env_z_max = 2.5;
 
 
 // Define Drone Size:
-double DRONE_X = 0.2;
-double DRONE_Y = 0.2;
+double DRONE_X = 0.1;
+double DRONE_Y = 0.1;
 double DRONE_Z = 0.1;
 
 double d_goal_eval = 2;

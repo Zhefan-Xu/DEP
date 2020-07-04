@@ -133,7 +133,7 @@ void callback(const nav_msgs::OdometryConstPtr& odom, const octomap_msgs::Octoma
 			else{
 				count_no_increase = 0;
 			}
-			if (count_no_increase >= 3){
+			if (count_no_increase >= 30){
 				auto stop_time_total = high_resolution_clock::now();
 				auto duration_total = duration_cast<microseconds>(stop_time_total - start_time_total);
 				cout << "Total: "<< duration_total.count()/1e6 << " seconds | " << "Exploration Terminates!!!!!!!!!!!" << endl;
@@ -271,6 +271,7 @@ void callback(const nav_msgs::OdometryConstPtr& odom, const octomap_msgs::Octoma
 			map_markers.markers = map_vis_array;
 			
 		}
+
 		// ====================================================================
 	}
 	else{
@@ -660,6 +661,7 @@ std::vector<Node*> findBestPath(PRM* roadmap, Node* start, std::vector<Node*> go
 	double linear_velocity = 0.3;
 	double angular_velocity = 0.8;
 	double current_yaw = start->yaw;
+	double score_thresh = 0.5;
 	std::vector<Node*> final_path;
 	// 1. Generate all the path
 	std::vector<std::vector<Node*>> path_vector;
@@ -725,7 +727,13 @@ std::vector<Node*> findBestPath(PRM* roadmap, Node* start, std::vector<Node*> go
 		path_vector.push_back(candidate_path);
 		++count_path_id;
 	}
-	// cout << "check 1" << endl;
+
+
+
+
+
+
+	// Find best score
 	double best_score = 0;
 	double best_idx = 0;
 	for (int i=0; i<path_vector.size(); ++i){
@@ -734,10 +742,60 @@ std::vector<Node*> findBestPath(PRM* roadmap, Node* start, std::vector<Node*> go
 			best_idx = i;
 		}
 	}
+	// cout << "initial_best_idx: " << best_idx << endl;
+
+	// // Filter the score which is larger than threshold
+	// std::vector<std::vector<Node*>> final_candidate_path;
+	// std::vector<double> final_candidate_score;
+	// for (int i=0; i<path_vector.size(); ++i){
+	// 	if (path_score[i] > score_thresh * best_score){
+	// 		final_candidate_path.push_back(path_vector[i]);
+	// 		final_candidate_score.push_back(path_score[i]);
+	// 	}
+	// }
 
 
-	// cout << "check 2" << endl;
+	// // for each of them calculate the total distance to reach other
+	// std::vector<double> total_distance_to_other;
+	// double shortest_distance = 100000;
+	// for (int i=0; i<final_candidate_path.size(); ++i){
+	// 	// calculate the total distance to other path
+	// 	double total_distance = 0;
+	// 	for (int j=0; j<final_candidate_path.size(); ++j){
+	// 		if (j != i){
+	// 			std::vector<Node*> path_to_other = AStar(roadmap, *(final_candidate_path[i].end()-1), *(final_candidate_path[j].end()-1), tree, false);
+	// 			total_distance += calculatePathLength(path_to_other);
+	// 		}
+	// 	}
+	// 	if (total_distance < shortest_distance){
+	// 		shortest_distance = total_distance;
+	// 	}
+	// 	cout << "path: " << i <<" raw score: " << final_candidate_score[i] << endl;
+	// 	cout << "path: " << i << " total distance: " << total_distance <<endl;
+	// 	total_distance_to_other.push_back(total_distance);
+	// }	
 
+
+	// // Update final score
+	// for (int i=0; i<final_candidate_path.size(); ++i){
+	// 	double discount_factor = total_distance_to_other[i]/shortest_distance;
+	// 	final_candidate_score[i] /= discount_factor;
+	// 	cout << "path: " << i << " discount factor: " << discount_factor << endl;
+	// 	cout << "path: " << i << " updated score: " << final_candidate_score[i] << endl;
+	// }
+
+	// // Find the best idx
+	// double final_best_score = 0;
+	// best_idx = 0;
+	// for (int i=0; i<final_candidate_path.size(); ++i){
+	// 	if (final_candidate_score[i] > final_best_score){
+	// 		final_best_score = final_candidate_score[i];
+	// 		best_idx = i;
+	// 	}
+	// }
+
+	// cout << "best_idx: " << best_idx << endl;
+	// Get the best path
 	final_path = path_vector[best_idx];
 	for (int i=0; i<final_path.size()-1; ++i){
 		Node* this_node = final_path[i];
