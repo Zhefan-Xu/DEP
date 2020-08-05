@@ -4,7 +4,7 @@
 #include <time.h>
 #include <math.h>
 // #include <rh_nbv/kdtree.h>
-#define pi acos(-1)
+#define PI_const 3.1415926
 using std::cout; using std::endl; using std::vector;
 using std::set; using std::pair; using std::map;
 using namespace octomap;

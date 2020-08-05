@@ -4,10 +4,9 @@
 #include <random>
 #include <geometry_msgs/Point.h>
 #include <visualization_msgs/Marker.h>
+#include <voxblox_ros/esdf_server.h>
 
 
-// MAP RESOLUTION:
-double RES = 0.2;
 
 // Depth CAMERA
 double FOV = 1.8;
@@ -22,12 +21,12 @@ static std::vector<visualization_msgs::Marker> DEFAULT_VECTOR;
 std::vector<double> generate_yaws(int n){
 	std::vector<double> yaws;
 	for (int i=0; i<n; ++i){
-		yaws.push_back(i*2*pi/n);
+		yaws.push_back(i*2*PI_const/n);
 	}
 	return yaws;
 }
-// std::vector<double> yaws {0, pi/4, pi/2, 3*pi/4, pi, 5*pi/4, 3*pi/2, 7*pi/4};
-// std::vector<double> yaws {0, pi/8 ,pi/4, pi*3/8, pi/2, pi*5/8, 3*pi/4, pi*7/8, pi, pi*9/8,5*pi/4, pi*11/8,3*pi/2, pi*13/8,7*pi/4, pi*15/8};
+// std::vector<double> yaws {0, PI_const/4, PI_const/2, 3*PI_const/4, PI_const, 5*PI_const/4, 3*PI_const/2, 7*PI_const/4};
+// std::vector<double> yaws {0, PI_const/8 ,PI_const/4, PI_const*3/8, PI_const/2, PI_const*5/8, 3*PI_const/4, PI_const*7/8, PI_const, PI_const*9/8,5*PI_const/4, PI_const*11/8,3*PI_const/2, PI_const*13/8,7*PI_const/4, PI_const*15/8};
 std::vector<double> yaws = generate_yaws(32);
 // Random Generator
 std::random_device rd;
@@ -428,34 +427,34 @@ PRM* buildRoadMap(OcTree &tree,
 						ymax -= 2;
 						ymin += 2;
 					}
-					else if (start_yaw == pi/4){
+					else if (start_yaw == PI_const/4){
 						xmin = start->p.x()-1;
 						ymin = start->p.y()-1;
 					}
-					else if (start_yaw == pi/2){
+					else if (start_yaw == PI_const/2){
 						ymin = start->p.y()-2;
 						xmax -= 2;
 						xmin += 2;
 					}
-					else if (start_yaw == 3*pi/4){
+					else if (start_yaw == 3*PI_const/4){
 						xmax = start->p.x()+1;
 						ymin = start->p.y()-1;
 					}
-					else if (start_yaw == pi){
+					else if (start_yaw == PI_const){
 						xmax = start->p.x()+2;
 						ymax -= 2;
 						ymin += 2;
 					}
-					else if (start_yaw == 5*pi/4){
+					else if (start_yaw == 5*PI_const/4){
 						xmax = start->p.x()+1;
 						ymax = start->p.y()+1;
 					}
-					else if (start_yaw == 3*pi/2){
+					else if (start_yaw == 3*PI_const/2){
 						ymax = start->p.y()+2;
 						xmax -= 2;
 						xmin += 2;
 					}
-					else if (start_yaw == 7*pi/4){
+					else if (start_yaw == 7*PI_const/4){
 						xmin = start->p.x()-1;
 						ymax = start->p.y()+1;
 					}
@@ -620,7 +619,7 @@ PRM* buildRoadMap(OcTree &tree,
 			// unknown_voxel_vis_marker.color.g = 0.0;
 			// unknown_voxel_vis_marker.color.b = 0.0;
 			int num = (int) n->num_voxels;
-			// int vis_angle =  n->yaw * 180/pi;
+			// int vis_angle =  n->yaw * 180/PI_const;
 			// std::string sep = ", ";
 			unknown_voxel_vis_marker.text = std::to_string(num); //+ sep + std::to_string(vis_angle);
 			++unknown_voxel_id;

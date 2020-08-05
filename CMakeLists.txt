@@ -3,6 +3,7 @@ project(DEP)
 
 ## Compile as C++11, supported in ROS Kinetic and newer
 add_compile_options(-std=c++11)
+# set(CMAKE_CXX_FLAGS "-lnlopt -lm")
 
 ## Find catkin macros and libraries
 ## if COMPONENTS list like find_package(catkin REQUIRED COMPONENTS xyz)
@@ -13,6 +14,7 @@ find_package(catkin REQUIRED COMPONENTS
   std_msgs
   octomap_ros
   message_generation
+  voxblox_ros
 )
 
 ## System dependencies are found with CMake's conventions
@@ -119,6 +121,8 @@ catkin_package(
 include_directories(
   include
   ${catkin_INCLUDE_DIRS}
+  "/opt/gurobi902/linux64/include"
+  "/home/zhefan/Desktop/nlopt/build"
 )
 
 ## Declare a C++ library
@@ -139,6 +143,10 @@ add_executable(test_kdtree_DEP src/test_kdtree_DEP.cpp)
 
 add_executable(test_prm src/test_prm.cpp)
 add_executable(map_vis src/map_vis.cpp)
+add_executable(test_tsdf src/test_tsdf.cpp)
+add_executable(test_gurobi src/test_gurobi.cpp)
+add_executable(test_nlopt src/test_nlopt.cpp)
+add_executable(test_tsdf_optimization src/test_tsdf_optimization.cpp)
 ## Rename C++ executable without prefix
 ## The above recommended prefix causes long target names, the following renames the
 ## target back to the shorter version for ease of user use
@@ -157,6 +165,16 @@ add_dependencies(map_vis ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_T
 target_link_libraries(test_kdtree_DEP ${catkin_LIBRARIES})
 target_link_libraries(test_prm ${catkin_LIBRARIES})
 target_link_libraries(map_vis ${catkin_LIBRARIES})
+target_link_libraries(test_tsdf ${catkin_LIBRARIES} 
+                        "/opt/gurobi902/linux64/lib/libgurobi_c++.a"
+                        "/opt/gurobi902/linux64/lib/libgurobi90.so")
+target_link_libraries(test_gurobi ${catkin_LIBRARIES} 
+                        "/opt/gurobi902/linux64/lib/libgurobi_c++.a"
+                        "/opt/gurobi902/linux64/lib/libgurobi90.so")
+target_link_libraries(test_nlopt ${catkin_LIBRARIES} 
+						"/home/zhefan/Desktop/nlopt/build/libnlopt.so")
+target_link_libraries(test_tsdf_optimization ${catkin_LIBRARIES} 
+						"/home/zhefan/Desktop/nlopt/build/libnlopt.so")
 
 #############
 ## Install ##
@@ -187,11 +205,11 @@ target_link_libraries(map_vis ${catkin_LIBRARIES})
 # )
 
 ## Mark cpp header files for installation
-# install(DIRECTORY include/${PROJECT_NAME}/
-#   DESTINATION ${CATKIN_PACKAGE_INCLUDE_DESTINATION}
-#   FILES_MATCHING PATTERN "*.h"
-#   PATTERN ".svn" EXCLUDE
-# )
+install(DIRECTORY include/${PROJECT_NAME}/
+  DESTINATION ${CATKIN_PACKAGE_INCLUDE_DESTINATION}
+  FILES_MATCHING PATTERN "*.h"
+  PATTERN ".svn" EXCLUDE
+)
 
 ## Mark other files for installation (e.g. launch and bag files, etc.)
 # install(FILES
