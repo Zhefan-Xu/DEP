@@ -24,6 +24,7 @@ ros::Publisher map_vis_pub;
 ros::Publisher goal_pub;
 ros::Publisher path_vis_pub;
 ros::Publisher plan_vis_pub;
+ros::Publisher old_plan_vis_pub;
 
 AbstractOcTree* abtree;
 OcTree* tree_ptr;
@@ -43,10 +44,13 @@ double delta_angle = 0.1;
 visualization_msgs::MarkerArray map_markers;
 std::vector<visualization_msgs::Marker> map_vis_array;
 visualization_msgs::MarkerArray plan_markers;
+visualization_msgs::MarkerArray old_plan_markers;
 
 
 visualization_msgs::Marker path_marker;
+visualization_msgs::Marker old_path_marker;
 std::vector<Node*> path;
+std::vector<Node*> old_path;
 int path_idx = 0;
 DEP::Goal next_goal;
 int count_iteration = 0;
@@ -190,10 +194,15 @@ void callback(const nav_msgs::OdometryConstPtr& odom, const octomap_msgs::Octoma
 		std::vector<Node*> goal_candidates = getGoalCandidates(roadmap);
 		// cout << "here4" <<endl;
 		path = findBestPath(roadmap, start, goal_candidates, *tree_ptr, replan);
+		old_path = path;
 		last_goal = *(path.end()-1);	
 		// cout << "here5" <<endl;
 		if (path.size() >= 3){
 			path = optimize_path(path, tree_ptr, voxblox_server_ptr, current_yaw);
+			// cout << "old path size: " << old_path.size() << endl;
+			// cout << "new path size: " << path.size() << endl;
+			// cout << "old_path last: " << old_path[old_path.size()-1]->p << endl;
+			// cout << "new_path last: " << path[old_path.size()-1]->p << endl;
 		}
 		auto stop_time_search = high_resolution_clock::now();
 		auto duration_search = duration_cast<microseconds>(stop_time_search - start_time_search);
@@ -309,8 +318,11 @@ void callback(const nav_msgs::OdometryConstPtr& odom, const octomap_msgs::Octoma
 	}
 	else{
 		std::vector<visualization_msgs::Marker> plan_vis_array;
+		std::vector<visualization_msgs::Marker> old_plan_vis_array;
 		std::vector<geometry_msgs::Point> path_vis_vector;
+		std::vector<geometry_msgs::Point> old_path_vis_vector;
 		plan_markers.markers = plan_vis_array;
+		old_plan_markers.markers = old_plan_vis_array;
 		// path = improvePath(path, path_idx, *tree_ptr, least_distance);
 		if (path.size() != 0){
 			// ========================Path Visualization=======================
@@ -328,6 +340,17 @@ void callback(const nav_msgs::OdometryConstPtr& odom, const octomap_msgs::Octoma
 					p2.z = path[i+1]->p.z();
 					path_vis_vector.push_back(p1);
 					path_vis_vector.push_back(p2);
+					if (old_path != path){
+						geometry_msgs::Point p3, p4;
+						p3.x = old_path[i]->p.x();
+						p3.y = old_path[i]->p.y();
+						p3.z = old_path[i]->p.z();
+						p4.x = old_path[i+1]->p.x();
+						p4.y = old_path[i+1]->p.y();
+						p4.z = old_path[i+1]->p.z();
+						old_path_vis_vector.push_back(p3);
+						old_path_vis_vector.push_back(p4);
+					}
 				}
 				// Way Point:
 				visualization_msgs::Marker way_point;
@@ -346,10 +369,52 @@ void callback(const nav_msgs::OdometryConstPtr& odom, const octomap_msgs::Octoma
 				way_point.color.g = 0.0;
 				way_point.color.b = 0.0;
 
+				if (old_path != path){
+					visualization_msgs::Marker old_way_point;
+					old_way_point.header.frame_id = "world";
+					old_way_point.id = 9999+i;
+					old_way_point.type = visualization_msgs::Marker::SPHERE;
+					old_way_point.pose.position.x = old_path[i]->p.x();
+					old_way_point.pose.position.y = old_path[i]->p.y();
+					old_way_point.pose.position.z = old_path[i]->p.z();
+					old_way_point.lifetime = ros::Duration(0.5);
+					old_way_point.scale.x = 0.1;
+					old_way_point.scale.y = 0.1;
+					old_way_point.scale.z = 0.1;
+					old_way_point.color.a = 1.0;
+					old_way_point.color.r = 1.0;
+					old_way_point.color.g = 0.0;
+					old_way_point.color.b = 0.0;
+					// old plan Direction
+					visualization_msgs::Marker old_direction_ptr;
+					old_direction_ptr.header.frame_id = "world";
+					old_direction_ptr.id = 6666+i;
+					old_direction_ptr.type = visualization_msgs::Marker::ARROW;
+					old_direction_ptr.pose.position.x = old_path[i]->p.x();
+					old_direction_ptr.pose.position.y = old_path[i]->p.y();
+					old_direction_ptr.pose.position.z = old_path[i]->p.z();
+					tf2::Quaternion quat;
+					quat.setRPY(0, 0, old_path[i]->yaw);
+					old_direction_ptr.pose.orientation.x = quat[0];
+					old_direction_ptr.pose.orientation.y = quat[1];
+					old_direction_ptr.pose.orientation.z = quat[2];
+					old_direction_ptr.pose.orientation.w = quat[3];
+					old_direction_ptr.lifetime = ros::Duration(0.5);
+					old_direction_ptr.scale.x = 0.3;
+					old_direction_ptr.scale.y = 0.03;
+					old_direction_ptr.scale.z = 0.03;
+					old_direction_ptr.color.a = 1;
+					old_direction_ptr.color.r = 0;
+					old_direction_ptr.color.g = 0;
+					old_direction_ptr.color.b = 1;
+
+					old_plan_vis_array.push_back(old_direction_ptr);
+					old_plan_vis_array.push_back(old_way_point);
+				}
 				// Direction
 				visualization_msgs::Marker direction_ptr;
 				direction_ptr.header.frame_id = "world";
-				direction_ptr.id = 6666+i;
+				direction_ptr.id = 66666+i;
 				direction_ptr.type = visualization_msgs::Marker::ARROW;
 				direction_ptr.pose.position.x = path[i]->p.x();
 				direction_ptr.pose.position.y = path[i]->p.y();
@@ -369,8 +434,13 @@ void callback(const nav_msgs::OdometryConstPtr& odom, const octomap_msgs::Octoma
 				direction_ptr.color.g = 0;
 				direction_ptr.color.b = 1;
 
+
+
+
 				plan_vis_array.push_back(way_point);
+				
 				plan_vis_array.push_back(direction_ptr);
+				
 			}
 			path_marker.header.frame_id = "world";
 			path_marker.points = path_vis_vector;
@@ -382,6 +452,21 @@ void callback(const nav_msgs::OdometryConstPtr& odom, const octomap_msgs::Octoma
 			path_marker.color.a = 1.0;
 			plan_vis_array.push_back(path_marker);
 			plan_markers.markers = plan_vis_array;
+			if (old_path != path){
+				old_path_marker.header.frame_id = "world";
+				old_path_marker.points = old_path_vis_vector;
+				old_path_marker.id = 10000000;
+				old_path_marker.type = visualization_msgs::Marker::LINE_LIST;
+				old_path_marker.scale.x = 0.05;
+				old_path_marker.scale.y = 0.05;
+				old_path_marker.scale.z = 0.05;
+				old_path_marker.color.a = 1.0;
+				old_path_marker.color.g = 1.0;
+				old_path_marker.color.r = 1.0;
+				old_plan_vis_array.push_back(old_path_marker);
+				old_plan_markers.markers = old_plan_vis_array;
+			}
+
 			// ====================================================================
 
 		}
@@ -408,6 +493,8 @@ int main(int argc, char** argv){
 	goal_pub = nh.advertise<DEP::Goal>("goal", 0);
 	path_vis_pub = nh.advertise<visualization_msgs::Marker>("path_vis_array", 0);
 	plan_vis_pub = nh.advertise<visualization_msgs::MarkerArray>("plan_vis_array", 0);
+	old_plan_vis_pub = nh.advertise<visualization_msgs::MarkerArray>("old_plan_vis_array", 0);
+
 	message_filters::Subscriber<nav_msgs::Odometry> odom_sub(nh, "odom", 100);
 	message_filters::Subscriber<octomap_msgs::Octomap> map_sub(nh, "octomap_binary", 100);
 	typedef sync_policies::ApproximateTime<nav_msgs::Odometry, octomap_msgs::Octomap> MySyncPolicy;
@@ -419,6 +506,9 @@ int main(int argc, char** argv){
 		map_vis_pub.publish(map_markers);	
 		goal_pub.publish(next_goal);
 		plan_vis_pub.publish(plan_markers);
+		if (path != old_path){
+			old_plan_vis_pub.publish(old_plan_markers);
+		}
 		// voxblox_server.saveMap("/home/zhefan/catkin_ws/src/DEP/src/test/cafe_voxblox.vxblx");
 		// voxblox_server.loadMap("/home/zhefan/catkin_ws/src/DEP/src/test/cafe_voxblox.vxblx");
 		// path_vis_pub.publish(path_marker);
@@ -1152,7 +1242,7 @@ double calculatePathObstacleDistance(std::vector<Node*> &path, voxblox::EsdfServ
 
 void reconstructPath(const std::vector<double> &x, start_goal *sg, std::vector<Node*> &path){
 	path.clear();
-	int num_nodes = (x.size()-2) / 3;
+	int num_nodes = x.size()/3;
 	int count = 0;
 	Node* start = new Node();
 	start->p.x() = sg->sx;

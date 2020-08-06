@@ -656,7 +656,7 @@ double calculatePathObstacleDistance(std::vector<Node*> &path, voxblox::EsdfServ
 
 void reconstructPath(const std::vector<double> &x, start_goal *sg, std::vector<Node*> &path){
 	path.clear();
-	int num_nodes = (x.size()-2) / 3;
+	int num_nodes = (x.size()) / 3;
 	int count = 0;
 	Node* start = new Node();
 	start->p.x() = sg->sx;

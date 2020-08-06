@@ -1,5 +1,5 @@
 <launch>
-    <node name="esdf_node" pkg="voxblox_ros" type="esdf_server" args="-alsologtostderr" clear_params="true">
+    <node name="esdf_planner_node" pkg="voxblox_ros" type="esdf_server" args="-alsologtostderr" clear_params="true">
       <remap from="pointcloud" to="/camera/depth/points"/>
       <remap from="esdf_node/esdf_map_out" to="esdf_map" />
       <param name="tsdf_voxel_size" value="0.2" />
