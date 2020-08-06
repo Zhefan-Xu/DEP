@@ -23,9 +23,8 @@ double calculatePathTime(std::vector<Node*> &path, double current_yaw, double li
 double calculatePathObstacleDistance(std::vector<Node*> &path, voxblox::EsdfServer &voxblox_server, OcTree &tree);
 
 
-
 typedef struct start_goal{
-	double sx, sy, sz, gx, gy, gz, current_yaw, lv, av, time, distance;
+	double sx, sy, sz, gx, gy, gz, current_yaw, last_yaw, lv, av, time, distance;
 	OcTree* tree;
 	voxblox::EsdfServer* voxblox_server;
 	start_goal(){}
@@ -36,6 +35,7 @@ typedef struct start_goal{
 			   double gy_, 
 			   double gz_, 
 			   double current_yaw_, 
+			   double last_yaw_,
 			   double lv_,
 			   double av_,
 			   double time_,
@@ -50,6 +50,7 @@ typedef struct start_goal{
 		gy = gy_;
 		gz = gz_;
 		current_yaw = current_yaw_;
+		last_yaw = last_yaw_;
 		lv = lv_;
 		av = av_;
 		time = time_;
@@ -58,6 +59,9 @@ typedef struct start_goal{
 		voxblox_server = voxblox_server_ptr;
 	}
 } start_goal;
+
+void reconstructPath(const std::vector<double> &x, start_goal *sg, std::vector<Node*> &path);
+
 
 double objective_function(const std::vector<double> &x, std::vector<double> &grad, void *my_func_data)
 {
@@ -72,44 +76,8 @@ double objective_function(const std::vector<double> &x, std::vector<double> &gra
 	double time = sg->time;
 	double distance = sg->distance;
 	// 1. reconstruct the node from variables amd data:
-	int num_nodes = (x.size()-2) / 3;
-	int count = 0;
 	std::vector<Node*> path;
-	Node* start = new Node();
-	start->p.x() = sg->sx;
-	start->p.y() = sg->sy;
-	start->p.z() = sg->sz;
-	path.push_back(start);
-	while (count < num_nodes){
-		int x_idx = count*3 + 0;
-		int y_idx = count*3 + 1;
-		int z_idx = count*3 + 2;
-		double pos_x = x[x_idx];
-		double pos_y = x[y_idx];
-		double pos_z = x[z_idx];
-		Node* n = new Node ();
-		n->p.x() = pos_x; 
-		n->p.y() = pos_y;
-		n->p.z() = pos_z;
-		// cout << pos_x << " " << pos_y << " " << pos_z << endl;
-		path.push_back(n);
-		++count;
-	}
-	Node* goal = new Node();
-	goal->p.x() = sg->gx;
-	goal->p.y() = sg->gy;
-	goal->p.z() = sg->gz;
-	path.push_back(goal);
-	for (int i=0; i<path.size()-1; ++i){
-		Node* this_node = path[i];
-		Node* next_node = path[i+1];
-		point3d direction = next_node->p - this_node->p;
-		double node_yaw = atan2(direction.y(), direction.x());
-		if (node_yaw < 0){
-			node_yaw = 2*PI_const - (-node_yaw);
-		}
-		path[i]->yaw = node_yaw;
-	}
+	reconstructPath(x, sg, path);
 	// double path_length = calculatePathLength(path);
 	double path_time = calculatePathTime(path, current_yaw, linear_velocity, angular_velocity);
 	double mean_distance = calculatePathObstacleDistance(path, *voxblox_server_ptr, *tree_ptr);
@@ -148,7 +116,7 @@ double objective_function(const std::vector<double> &x, std::vector<double> &gra
     return score;
 }
 
-double optimize_path(std::vector<Node*> path, OcTree* tree_ptr, voxblox::EsdfServer* voxblox_server){
+std::vector<Node*> optimize_path(std::vector<Node*> path, OcTree* tree_ptr, voxblox::EsdfServer* voxblox_server){
 	// print_node_vector(path);
 	// Intialize optimizer
 	int num_of_variables = (path.size()-2) * 3;
@@ -157,12 +125,13 @@ double optimize_path(std::vector<Node*> path, OcTree* tree_ptr, voxblox::EsdfSer
 	// start_goal sg = {start->p.x(), start->p.y(), start->p.z(), 
 	// 				 goal->p.x(), goal->p.y(), goal->p.z()};
 	double current_yaw = 0;
+	double last_yaw = (*(path.end()-1))->yaw;
 	double linear_velocity = 0.3;
 	double angular_velocity = 0.8;
 	double time = calculatePathTime(path, current_yaw, linear_velocity, angular_velocity);
 	double distance = calculatePathObstacleDistance(path, *voxblox_server, *tree_ptr);
 	start_goal sg (start->p.x(), start->p.y(), start->p.z(), 
-	 				 goal->p.x(), goal->p.y(), goal->p.z(), current_yaw,
+	 				 goal->p.x(), goal->p.y(), goal->p.z(), current_yaw, last_yaw,
 	 				 linear_velocity, angular_velocity, time, distance,
 	 				 tree_ptr, voxblox_server);
 
@@ -220,13 +189,16 @@ double optimize_path(std::vector<Node*> path, OcTree* tree_ptr, voxblox::EsdfSer
 		for (int i=0; i < path.size()-2; ++i){
 			cout << x_variables[i*3+0] << " " << x_variables[i*3+1] << " " << x_variables[i*3+2] << endl; 
 		}
+		std::vector<Node*> optimized_path;
+		reconstructPath(x_variables, &sg, optimized_path);
+		return optimized_path;
 	}
 	catch(std::exception &e){
 		cout << "nlopt fail" << e.what() << endl;
+		return path;
 	}
 
 
-	return 0;
 }
 
 
@@ -253,7 +225,8 @@ int main(int argc, char** argv){
 	OcTree* tree_ptr = new OcTree (0.2);
 	tree_ptr->readBinary("/home/zhefan/catkin_ws/src/DEP/src/test/cafe_octree.bt");
 	std::vector<Node*> path = test_tsdf(*tree_ptr, *voxblox_server);
-	optimize_path(path, tree_ptr, voxblox_server);
+	path = optimize_path(path, tree_ptr, voxblox_server);
+	print_node_vector(path);
 	return 0;
 }
 
@@ -299,7 +272,7 @@ std::vector<Node*> test_tsdf(OcTree &tree, voxblox::EsdfServer &voxblox_server){
 	p8->yaw = 0;
 	Node* p9 = new Node (point3d (-2.04, 6.64, 1.16));
 	// Node p9 (point3d (-2.04, 6.64, 1.16));
-	p9->yaw = 0;
+	p9->yaw = 1;
 	std::vector<Node*> best_path;
 	best_path.push_back(p1);
 	best_path.push_back(p2);
@@ -679,4 +652,47 @@ double calculatePathObstacleDistance(std::vector<Node*> &path, voxblox::EsdfServ
 		++path_idx;
 	}
 	return total_distance/count_node;
+}
+
+void reconstructPath(const std::vector<double> &x, start_goal *sg, std::vector<Node*> &path){
+	path.clear();
+	int num_nodes = (x.size()-2) / 3;
+	int count = 0;
+	Node* start = new Node();
+	start->p.x() = sg->sx;
+	start->p.y() = sg->sy;
+	start->p.z() = sg->sz;
+	path.push_back(start);
+	while (count < num_nodes){
+		int x_idx = count*3 + 0;
+		int y_idx = count*3 + 1;
+		int z_idx = count*3 + 2;
+		double pos_x = x[x_idx];
+		double pos_y = x[y_idx];
+		double pos_z = x[z_idx];
+		Node* n = new Node ();
+		n->p.x() = pos_x; 
+		n->p.y() = pos_y;
+		n->p.z() = pos_z;
+		// cout << pos_x << " " << pos_y << " " << pos_z << endl;
+		path.push_back(n);
+		++count;
+	}
+	Node* goal = new Node();
+	goal->p.x() = sg->gx;
+	goal->p.y() = sg->gy;
+	goal->p.z() = sg->gz;
+	path.push_back(goal);
+	for (int i=0; i<path.size()-1; ++i){
+		Node* this_node = path[i];
+		Node* next_node = path[i+1];
+		point3d direction = next_node->p - this_node->p;
+		double node_yaw = atan2(direction.y(), direction.x());
+		if (node_yaw < 0){
+			node_yaw = 2*PI_const - (-node_yaw);
+		}
+		path[i]->yaw = node_yaw;
+	}
+	double last_yaw = sg->last_yaw;
+	path[path.size()-1]->yaw = last_yaw;
 }
