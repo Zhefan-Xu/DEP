@@ -2,19 +2,19 @@
 // MAP RESOLUTION:
 double RES = 0.2;
 
-// // cafe
-// double env_x_min = -4.5;
-// double env_x_max = 4.5;
-// double env_y_min = -11;
-// double env_y_max = 7;
-// double env_z_min = 0;
-// double env_z_max = 2.5;
+// cafe
+double env_x_min = -4.5;
+double env_x_max = 4.5;
+double env_y_min = -11;
+double env_y_max = 7;
+double env_z_min = 0;
+double env_z_max = 2.5;
 
 
-// // Define Drone Size:
-// double DRONE_X = 0.5;
-// double DRONE_Y = 0.5;
-// double DRONE_Z = 0.1;
+// Define Drone Size:
+double DRONE_X = 0.3;
+double DRONE_Y = 0.3;
+double DRONE_Z = 0.1;
 
 // //garage
 // double env_x_min = -15;
@@ -91,16 +91,16 @@ double RES = 0.2;
 // double DRONE_Y = 0.1;
 // double DRONE_Z = 0.1;
 
-// auditorium
-double env_x_min = -4;
-double env_x_max = 16;
-double env_y_min = -7;
-double env_y_max = 8;
-double env_z_min = 0.2;
-double env_z_max = 2.7;
+// // auditorium
+// double env_x_min = -4;
+// double env_x_max = 16;
+// double env_y_min = -7;
+// double env_y_max = 8;
+// double env_z_min = 0.2;
+// double env_z_max = 2.7;
 
 
-// Define Drone Size:
-double DRONE_X = 0.1;
-double DRONE_Y = 0.1;
-double DRONE_Z = 0.1;
+// // Define Drone Size:
+// double DRONE_X = 0.1;
+// double DRONE_Y = 0.1;
+// double DRONE_Z = 0.1;

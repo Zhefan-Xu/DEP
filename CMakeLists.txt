@@ -164,7 +164,8 @@ add_dependencies(map_vis ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_T
 # )
 target_link_libraries(test_kdtree_DEP ${catkin_LIBRARIES})
 target_link_libraries(test_prm ${catkin_LIBRARIES})
-target_link_libraries(map_vis ${catkin_LIBRARIES})
+target_link_libraries(map_vis ${catkin_LIBRARIES} 
+						"/home/zhefan/Desktop/nlopt/build/libnlopt.so")
 target_link_libraries(test_tsdf ${catkin_LIBRARIES} 
                         "/opt/gurobi902/linux64/lib/libgurobi_c++.a"
                         "/opt/gurobi902/linux64/lib/libgurobi90.so")

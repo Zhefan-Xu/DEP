@@ -17,6 +17,7 @@
 #include <cmath>
 #include <chrono> 
 #include <iostream>
+#include <nlopt.hpp>
 using namespace std::chrono;
 using namespace message_filters;
 ros::Publisher map_vis_pub;
@@ -26,7 +27,9 @@ ros::Publisher plan_vis_pub;
 
 AbstractOcTree* abtree;
 OcTree* tree_ptr;
+voxblox::EsdfServer* voxblox_server_ptr;
 PRM* roadmap;
+Node* last_goal;
 bool new_plan = true;
 bool replan = false;
 // int num_sample = 100;
@@ -63,6 +66,17 @@ std::vector<Node*>& improvePath(std::vector<Node*> &path, int path_idx, OcTree &
 std::vector<Node*> getGoalCandidates(PRM* roadmap);
 std::vector<Node*> findBestPath(PRM* roadmap, Node* start, std::vector<Node*> goal_candidates, OcTree& tree, bool replan);
 bool checkNextGoalCollision(Node current_pose, DEP::Goal next_goal, OcTree& tree);
+double objective_function(const std::vector<double> &x, std::vector<double> &grad, void *my_func_data);
+std::vector<Node*> optimize_path(std::vector<Node*> path, OcTree* tree_ptr, voxblox::EsdfServer* voxblox_server, double current_yaw);
+double findDistanceToWall(double x, double y, double z, voxblox::EsdfServer &voxblox_server);
+bool checkPathCollision(std::vector<Node*> &path, OcTree &tree);
+bool minDistanceCondition(std::vector<Node*> &path);
+bool sensorConditionPath(std::vector<Node*> &path);
+double calculatePathTime(std::vector<Node*> &path, double current_yaw, double linear_velocity, double angular_velocity);
+double calculatePathObstacleDistance(std::vector<Node*> &path, voxblox::EsdfServer &voxblox_server, OcTree &tree);
+
+
+
 
 bool reach = false;
 bool first_time = true;
@@ -84,6 +98,13 @@ void callback(const nav_msgs::OdometryConstPtr& odom, const octomap_msgs::Octoma
 	current_pose.p.y() = y;
 	current_pose.p.z() = z;
 	// tree_ptr->writeBinary("/home/zhefan/catkin_ws/src/DEP/src/test/cafe_octree.bt");
+	geometry_msgs::Quaternion quat = odom->pose.pose.orientation;
+	tf2::Quaternion tf_quat;
+	double current_roll, current_pitch, current_yaw;
+	tf2::Matrix3x3(tf_quat).getRPY(current_roll, current_pitch, current_yaw);
+	if (current_yaw < 0){
+		current_yaw = 2 * PI_const - (-current_yaw);
+	}
 
 	// Check for collision
 	if (not first_time){
@@ -126,8 +147,9 @@ void callback(const nav_msgs::OdometryConstPtr& odom, const octomap_msgs::Octoma
 			first_time = false;
 		}
 		else{
-			start = *(path.end()-1);	
+			start = last_goal;	
 			roadmap = buildRoadMap(*tree_ptr, roadmap, path,  start, map_vis_array);
+			// cout << "here1" <<endl;
 			if (roadmap->getSize() - roadmap_size_last < 3){
 				++count_no_increase;
 			}
@@ -151,7 +173,7 @@ void callback(const nav_msgs::OdometryConstPtr& odom, const octomap_msgs::Octoma
 			// ros::shutdown();
 		}
 
-		
+		// cout << "here2" <<endl;
 		
 		// cout << "map size: " << map->getSize() <<endl;
 		// cout << "map vis array size: " << map_vis_array.size() << endl;
@@ -164,8 +186,15 @@ void callback(const nav_msgs::OdometryConstPtr& odom, const octomap_msgs::Octoma
 		// Node* start = map->nearestNeighbor(&current_pose);
 		
 		auto start_time_search = high_resolution_clock::now();
+		// cout << "here3" <<endl;
 		std::vector<Node*> goal_candidates = getGoalCandidates(roadmap);
+		// cout << "here4" <<endl;
 		path = findBestPath(roadmap, start, goal_candidates, *tree_ptr, replan);
+		last_goal = *(path.end()-1);	
+		// cout << "here5" <<endl;
+		if (path.size() >= 3){
+			path = optimize_path(path, tree_ptr, voxblox_server_ptr, current_yaw);
+		}
 		auto stop_time_search = high_resolution_clock::now();
 		auto duration_search = duration_cast<microseconds>(stop_time_search - start_time_search);
 		cout << "Time used for search is: " << duration_search.count()/1e6 << " Seconds" << endl;
@@ -234,7 +263,10 @@ void callback(const nav_msgs::OdometryConstPtr& odom, const octomap_msgs::Octoma
 
 		// Find best path based on collision node
 		path = findBestPath(roadmap, start, goal_candidates, *tree_ptr, replan);
-
+		last_goal = *(path.end()-1);	
+		// if (path.size() >= 3){
+		// 	path = optimize_path(path, tree_ptr, voxblox_server_ptr, current_yaw);
+		// }
 
 		path_idx = 0;
 		if (path.size() != 0){
@@ -367,9 +399,9 @@ int main(int argc, char** argv){
 	ros::init(argc, argv, "map_visualizer");
 	ros::NodeHandle nh;
 	ros::NodeHandle nh_private("~");
-	voxblox::EsdfServer voxblox_server(nh, nh_private);
-	// Eigen::Vector3d p_test (0.3, 6, 1);
-	// double distance = 0;
+	voxblox_server_ptr = new voxblox::EsdfServer(nh, nh_private);
+	Eigen::Vector3d p_test (0.3, 6, 1);
+	double distance = 0;
 
 	// ros::Subscriber sub = n.subscribe("octomap_binary", 100, callback);
 	map_vis_pub = nh.advertise<visualization_msgs::MarkerArray>("map_vis_array", 0);
@@ -392,7 +424,6 @@ int main(int argc, char** argv){
 		// path_vis_pub.publish(path_marker);
 		// cout << tree_ptr << endl;
 		// improvePath(path, path_idx, *tree_ptr);
-		// bool success = voxblox_server.getEsdfMapPtr()->getDistanceAtPosition(p_test, &distance);
 		// if (success){
 		// 	cout << "distance to wall: " << distance << endl;
 		// }
@@ -690,6 +721,7 @@ std::vector<Node*> findBestPath(PRM* roadmap,
 	std::vector<double> path_score; // Score = num_voxels/time
 	std::vector<Node*> candidate_path;
 	int count_path_id = 0;
+
 	for (Node* goal: goal_candidates){
 		candidate_path = AStar(roadmap, start, goal, tree, replan);	
 
@@ -818,7 +850,9 @@ std::vector<Node*> findBestPath(PRM* roadmap,
 
 	// cout << "best_idx: " << best_idx << endl;
 	// Get the best path
+	// cout << "check3" << endl;
 	final_path = path_vector[best_idx];
+	// cout << final_path.size() << endl;
 	for (int i=0; i<final_path.size()-1; ++i){
 		Node* this_node = final_path[i];
 		Node* next_node = final_path[i+1];
@@ -829,6 +863,7 @@ std::vector<Node*> findBestPath(PRM* roadmap,
 		}
 		final_path[i]->yaw = node_yaw;
 	}
+	// cout << "check4" << endl;
 	// cout << "final id: " << best_idx << endl;
 	// cout << "final path size: " << final_path.size() << endl;
 	return final_path;
@@ -839,3 +874,321 @@ bool checkNextGoalCollision(Node current_node, DEP::Goal next_goal, OcTree& tree
 	return checkCollision(tree, &current_node, &goal_node); // true if there is collision otherwise no collision
 }
 
+typedef struct start_goal{
+	double sx, sy, sz, gx, gy, gz, current_yaw, last_yaw, lv, av, time, distance;
+	OcTree* tree;
+	voxblox::EsdfServer* voxblox_server;
+	start_goal(){}
+	start_goal(double sx_,
+			   double sy_, 
+			   double sz_, 
+			   double gx_, 
+			   double gy_, 
+			   double gz_, 
+			   double current_yaw_, 
+			   double last_yaw_,
+			   double lv_,
+			   double av_,
+			   double time_,
+			   double distance_, 
+			   OcTree* tree_ptr,
+			   voxblox::EsdfServer* voxblox_server_ptr
+			   ){
+		sx = sx_;
+		sy = sy_;
+		sz = sz_;
+		gx = gx_;
+		gy = gy_;
+		gz = gz_;
+		current_yaw = current_yaw_;
+		last_yaw = last_yaw_;
+		lv = lv_;
+		av = av_;
+		time = time_;
+		distance = distance_;
+		tree = tree_ptr;
+		voxblox_server = voxblox_server_ptr;
+	}
+} start_goal;
+
+void reconstructPath(const std::vector<double> &x, start_goal *sg, std::vector<Node*> &path);
+
+double objective_function(const std::vector<double> &x, std::vector<double> &grad, void *my_func_data)
+{
+	if (!grad.empty()) {}
+    // x is contains all the INTERMEDIATE waypoint
+	start_goal* sg = reinterpret_cast<start_goal*>(my_func_data);
+	OcTree* tree_ptr = sg->tree;
+	voxblox::EsdfServer* voxblox_server_ptr = sg->voxblox_server;
+	double current_yaw = sg->current_yaw;
+	double linear_velocity = sg->lv;
+	double angular_velocity = sg->av;
+	double time = sg->time;
+	double distance = sg->distance;
+	// 1. reconstruct the node from variables amd data:
+	std::vector<Node*> path;
+	reconstructPath(x, sg, path);
+	// double path_length = calculatePathLength(path);
+	double path_time = calculatePathTime(path, current_yaw, linear_velocity, angular_velocity);
+	double mean_distance = calculatePathObstacleDistance(path, *voxblox_server_ptr, *tree_ptr);
+	double collision_factor;
+	if (checkPathCollision(path, *tree_ptr) == true){
+		collision_factor = 100;
+	}
+	else{
+		collision_factor = 1;
+	}
+	double distance_factor;
+	if (minDistanceCondition(path) == false){
+		distance_factor = 100;
+	}
+	else{
+		distance_factor = 1;
+	}
+	double sensor_factor;
+	if (sensorConditionPath(path) == false){
+		sensor_factor = 100;
+	}
+	else{
+		sensor_factor = 1;
+	} 
+
+	// path_time *= collision_factor;
+	// path_time *= distance_factor;
+	// path_time *= sensor_factor;
+	double wp = 0.5;
+	double wd = 0.5;
+	double score = (wp*path_time/time + wd*(distance/mean_distance)) * collision_factor *
+					distance_factor * sensor_factor;
+	// cout << score << endl;
+	// cout << path_time << endl;
+	// print_node_vector(path);
+    return score;
+}
+
+std::vector<Node*> optimize_path(std::vector<Node*> path, OcTree* tree_ptr, voxblox::EsdfServer* voxblox_server, double current_yaw){
+	// print_node_vector(path);
+	// Intialize optimizer
+	// cout << "1" <<endl;
+	int num_of_variables = (path.size()-2) * 3;
+	Node* start = *(path.begin());
+	Node* goal = *(path.end()-1);
+	
+	// start_goal sg = {start->p.x(), start->p.y(), start->p.z(), 
+	// 				 goal->p.x(), goal->p.y(), goal->p.z()};
+	double last_yaw = (*(path.end()-1))->yaw;
+	double linear_velocity = 0.3;
+	double angular_velocity = 0.8;
+	// cout << "2" <<endl;
+	double time = calculatePathTime(path, current_yaw, linear_velocity, angular_velocity);
+	// cout << "3" <<endl;
+	double distance = calculatePathObstacleDistance(path, *voxblox_server, *tree_ptr);
+	// cout << "4" <<endl;
+	start_goal sg (start->p.x(), start->p.y(), start->p.z(), 
+	 				 goal->p.x(), goal->p.y(), goal->p.z(), current_yaw, last_yaw,
+	 				 linear_velocity, angular_velocity, time, distance,
+	 				 tree_ptr, voxblox_server);
+	// cout << "5" <<endl;
+	nlopt::opt opt(nlopt::GN_DIRECT_L, num_of_variables);
+	// set bound -> +- 0.5 m
+	int count_node_idx = 0;
+	int count_variable = 0;
+	std::vector<double> lb (num_of_variables);
+	std::vector<double> ub (num_of_variables);
+	// Initialize variables
+	std::vector<double> x_variables (num_of_variables);
+	double bound_dis = 0.25;
+	while (count_node_idx < path.size()){
+		if (count_node_idx != 0 and count_node_idx != path.size()-1){
+			double x = path[count_node_idx]->p.x();
+			double y = path[count_node_idx]->p.y();
+			double z = path[count_node_idx]->p.z();
+			for (int i=0; i<3; ++i){
+				if (i == 0){
+					lb[count_variable] = x-bound_dis;
+					ub[count_variable] = x+bound_dis;
+					x_variables[count_variable] = x;
+				}
+				else if(i == 1){
+					lb[count_variable] = y-bound_dis;
+					ub[count_variable] = y+bound_dis;
+					x_variables[count_variable] = y;
+				}
+				else if(i == 2){
+					lb[count_variable] = z-bound_dis;
+					ub[count_variable] = z+bound_dis;
+					x_variables[count_variable] = z;
+				}
+				++count_variable;
+			}
+		}
+		++count_node_idx;
+	}
+	// cout << "6" <<endl;
+	// set bound
+	opt.set_lower_bounds(lb);
+	opt.set_upper_bounds(ub);
+	// set objective function
+	opt.set_min_objective(objective_function, &sg);
+	// set termination criteria
+	// opt.set_xtol_rel(0.2);
+	opt.set_maxeval(1000);
+	double min_obj;
+	// cout << "here" << endl;
+
+	try{
+		nlopt::result result = opt.optimize(x_variables, min_obj);
+		// cout << "x[0]: " << x_variables[0] << endl;
+		// cout << "Time before: " << calculatePathTime(path, current_yaw, linear_velocity, angular_velocity) << endl;
+		cout << "min score: " << min_obj << endl;
+		// cout << "theoretical min: " << start->p.distance(goal->p);
+		// for (int i=0; i < path.size()-2; ++i){
+		// 	cout << x_variables[i*3+0] << " " << x_variables[i*3+1] << " " << x_variables[i*3+2] << endl; 
+		// }
+		// cout << "7" <<endl;
+		std::vector<Node*> optimized_path;
+		reconstructPath(x_variables, &sg, optimized_path);
+		return optimized_path;
+	}
+	catch(std::exception &e){
+		cout << "nlopt fail" << e.what() << endl;
+		return path;
+	}
+
+
+}
+
+double findDistanceToWall(double x, double y, double z, voxblox::EsdfServer &voxblox_server){
+	Eigen::Vector3d p (x, y, z);
+	double distance = 0;
+	bool success = voxblox_server.getEsdfMapPtr()->getDistanceAtPosition(p, &distance);
+	if (success){
+		return distance;
+	}
+	else{
+		return 1000000;
+	}
+}
+
+bool checkPathCollision(std::vector<Node*> &path, OcTree& tree){
+	int path_idx = 0;
+	while (path_idx < path.size()-1){
+		Node* this_node = path[path_idx];
+		Node* next_node = path[path_idx+1];
+		if (checkCollision(tree, this_node, next_node) == true){
+			return true;
+		}
+		++path_idx;
+	}
+	return false;
+}
+
+bool minDistanceCondition(std::vector<Node*> &path){
+	int path_idx = 0;
+	double dis_thresh = 0.5;
+	while (path_idx < path.size()-1){
+		Node* this_node = path[path_idx];
+		Node* next_node = path[path_idx+1];
+		if (this_node->p.distance(next_node->p) < dis_thresh){
+			return false;
+		}
+		++path_idx;
+	}
+	return true;
+}
+
+bool sensorConditionPath(std::vector<Node*> &path){
+	int path_idx = 0;
+	while (path_idx < path.size()-1){
+		Node* this_node = path[path_idx];
+		Node* next_node = path[path_idx+1];
+		if (sensorRangeCondition(this_node, next_node) == false){
+			return false;
+		}
+		++path_idx;
+	}
+	return true;
+}
+
+double calculatePathTime(std::vector<Node*> &path, double current_yaw, double linear_velocity, double angular_velocity){
+	double length = calculatePathLength(path);
+	double rotaton = calculatePathRotation(path,current_yaw);
+	double time = length/linear_velocity + rotaton/angular_velocity;
+	return time;
+}
+
+double calculatePathObstacleDistance(std::vector<Node*> &path, voxblox::EsdfServer &voxblox_server, OcTree &tree){
+	double total_distance = 0; 
+	double thresh_dist = 2;
+	int count_node = 0;
+	int path_idx = 0;
+	while (path_idx < path.size() - 1){
+		Node* this_node = path[path_idx];
+		Node* next_node = path[path_idx+1];
+		point3d p1 = this_node->p;
+		point3d p2 = next_node->p;
+		std::vector<point3d> ray;
+		tree.computeRay(p1, p2, ray);
+
+		for (point3d p: ray){
+			Eigen::Vector3d p_eigen (p.x(), p.y(), p.z());
+			double distance = 0;
+			bool success = voxblox_server.getEsdfMapPtr()->getDistanceAtPosition(p_eigen, &distance);
+
+			if (success){
+				if (distance <= thresh_dist){
+					total_distance += std::abs(distance);
+				}
+			}
+			else{
+				// cout << "error in tsdf" << endl;
+			}
+			++count_node;
+		}
+		++path_idx;
+	}
+	return total_distance/count_node;
+}
+
+void reconstructPath(const std::vector<double> &x, start_goal *sg, std::vector<Node*> &path){
+	path.clear();
+	int num_nodes = (x.size()-2) / 3;
+	int count = 0;
+	Node* start = new Node();
+	start->p.x() = sg->sx;
+	start->p.y() = sg->sy;
+	start->p.z() = sg->sz;
+	path.push_back(start);
+	while (count < num_nodes){
+		int x_idx = count*3 + 0;
+		int y_idx = count*3 + 1;
+		int z_idx = count*3 + 2;
+		double pos_x = x[x_idx];
+		double pos_y = x[y_idx];
+		double pos_z = x[z_idx];
+		Node* n = new Node ();
+		n->p.x() = pos_x; 
+		n->p.y() = pos_y;
+		n->p.z() = pos_z;
+		// cout << pos_x << " " << pos_y << " " << pos_z << endl;
+		path.push_back(n);
+		++count;
+	}
+	Node* goal = new Node();
+	goal->p.x() = sg->gx;
+	goal->p.y() = sg->gy;
+	goal->p.z() = sg->gz;
+	path.push_back(goal);
+	for (int i=0; i<path.size()-1; ++i){
+		Node* this_node = path[i];
+		Node* next_node = path[i+1];
+		point3d direction = next_node->p - this_node->p;
+		double node_yaw = atan2(direction.y(), direction.x());
+		if (node_yaw < 0){
+			node_yaw = 2*PI_const - (-node_yaw);
+		}
+		path[i]->yaw = node_yaw;
+	}
+	double last_yaw = sg->last_yaw;
+	path[path.size()-1]->yaw = last_yaw;
+}
