@@ -78,7 +78,7 @@ bool minDistanceCondition(std::vector<Node*> &path);
 bool sensorConditionPath(std::vector<Node*> &path);
 double calculatePathTime(std::vector<Node*> &path, double current_yaw, double linear_velocity, double angular_velocity);
 double calculatePathObstacleDistance(std::vector<Node*> &path, voxblox::EsdfServer &voxblox_server, OcTree &tree);
-
+double calculatePathGain(std::vector<Node*> path, OcTree& tree);
 
 
 
@@ -203,6 +203,9 @@ void callback(const nav_msgs::OdometryConstPtr& odom, const octomap_msgs::Octoma
 			// cout << "new path size: " << path.size() << endl;
 			// cout << "old_path last: " << old_path[old_path.size()-1]->p << endl;
 			// cout << "new_path last: " << path[old_path.size()-1]->p << endl;
+			double old_gain = calculatePathGain(old_path, *tree_ptr);
+			double new_gain = calculatePathGain(path, *tree_ptr);
+			cout << "new path gain/old path gain: " << new_gain << "/" << old_gain << " = " << new_gain/old_gain << endl;
 		}
 		auto stop_time_search = high_resolution_clock::now();
 		auto duration_search = duration_cast<microseconds>(stop_time_search - start_time_search);
@@ -216,12 +219,13 @@ void callback(const nav_msgs::OdometryConstPtr& odom, const octomap_msgs::Octoma
 		auto stop_time = high_resolution_clock::now();
 		auto duration = duration_cast<microseconds>(stop_time - start_time);
 		cout << "Time taken by this Iteration: "
-         << duration.count()/1e6 << " seconds" << endl;
-         total_comp_time += duration.count()/1e6;
-         ++count_iteration;
-         cout << "Total Computation Time: " << total_comp_time << endl;
-         cout << "Path Length So Far: " << total_path_length << endl;
-         cout << "==============================" << "END" << "==============================" << endl;
+        << duration.count()/1e6 << " seconds" << endl;
+        total_comp_time += duration.count()/1e6;
+        ++count_iteration;
+        cout << "Total Computation Time: " << total_comp_time << endl;
+        cout << "Path Length So Far: " << total_path_length << endl;
+		cout << "Avg Computation Time: " << total_comp_time/total_path_segment << endl;
+        cout << "==============================" << "END" << "==============================" << endl;
 		// print_path(path);
 
 		path_idx = 0;
@@ -272,10 +276,11 @@ void callback(const nav_msgs::OdometryConstPtr& odom, const octomap_msgs::Octoma
 
 		// Find best path based on collision node
 		path = findBestPath(roadmap, start, goal_candidates, *tree_ptr, replan);
+		old_path = path;
 		last_goal = *(path.end()-1);	
-		// if (path.size() >= 3){
-		// 	path = optimize_path(path, tree_ptr, voxblox_server_ptr, current_yaw);
-		// }
+		if (path.size() >= 3){
+			path = optimize_path(path, tree_ptr, voxblox_server_ptr, current_yaw);
+		}
 
 		path_idx = 0;
 		if (path.size() != 0){
@@ -450,6 +455,7 @@ void callback(const nav_msgs::OdometryConstPtr& odom, const octomap_msgs::Octoma
 			path_marker.scale.y = 0.05;
 			path_marker.scale.z = 0.05;
 			path_marker.color.a = 1.0;
+			path_marker.lifetime = ros::Duration(0.5);
 			plan_vis_array.push_back(path_marker);
 			plan_markers.markers = plan_vis_array;
 			if (old_path != path){
@@ -463,6 +469,7 @@ void callback(const nav_msgs::OdometryConstPtr& odom, const octomap_msgs::Octoma
 				old_path_marker.color.a = 1.0;
 				old_path_marker.color.g = 1.0;
 				old_path_marker.color.r = 1.0;
+				old_path_marker.lifetime = ros::Duration(0.5);
 				old_plan_vis_array.push_back(old_path_marker);
 				old_plan_markers.markers = old_plan_vis_array;
 			}
@@ -595,7 +602,7 @@ bool isReach(const nav_msgs::OdometryConstPtr& odom, DEP::Goal next_goal){
 }
 
 Node* findStartNode(PRM* map, Node* current_node, OcTree& tree){
-	std::vector<Node*> knn = map->kNearestNeighbor(current_node, 5);
+	std::vector<Node*> knn = map->kNearestNeighbor(current_node, 15);
 	for (Node* n: knn){
 		bool has_collision = checkCollision(tree, n, current_node);
 		if (not has_collision){
@@ -1087,7 +1094,7 @@ std::vector<Node*> optimize_path(std::vector<Node*> path, OcTree* tree_ptr, voxb
 	std::vector<double> ub (num_of_variables);
 	// Initialize variables
 	std::vector<double> x_variables (num_of_variables);
-	double bound_dis = 0.25;
+	double bound_dis = 0.5;
 	while (count_node_idx < path.size()){
 		if (count_node_idx != 0 and count_node_idx != path.size()-1){
 			double x = path[count_node_idx]->p.x();
@@ -1281,4 +1288,18 @@ void reconstructPath(const std::vector<double> &x, start_goal *sg, std::vector<N
 	}
 	double last_yaw = sg->last_yaw;
 	path[path.size()-1]->yaw = last_yaw;
+}
+
+
+// Calculate the total information gain of the given path
+double calculatePathGain(std::vector<Node*> path, OcTree& tree){
+	double total_path_gain = 0;
+	// iterate through all nodes
+	for (Node* n: path){
+		double yaw = n->yaw;
+		double total_node_gain = calculateUnknown(tree, n, dmax);
+		double node_gain_yaw = interpolateNumVoxels(n, yaw);
+		total_path_gain += node_gain_yaw;
+	}
+	return total_path_gain;
 }
