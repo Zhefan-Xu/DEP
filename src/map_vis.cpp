@@ -18,6 +18,8 @@
 #include <chrono> 
 #include <iostream>
 #include <nlopt.hpp>
+#include <iostream>
+#include <fstream>
 using namespace std::chrono;
 using namespace message_filters;
 ros::Publisher map_vis_pub;
@@ -31,6 +33,10 @@ OcTree* tree_ptr;
 voxblox::EsdfServer* voxblox_server_ptr;
 PRM* roadmap;
 Node* last_goal;
+std::ofstream optimization_data;
+std::ofstream replan_data;
+
+bool no_replan = false;
 bool new_plan = true;
 bool replan = false;
 // int num_sample = 100;
@@ -54,9 +60,11 @@ std::vector<Node*> old_path;
 int path_idx = 0;
 DEP::Goal next_goal;
 int count_iteration = 0;
+double total_time = 0;
 double total_comp_time = 0;
 double total_path_length = 0;
 double total_path_segment = 0;
+double total_distance_to_obstacle = 0;
 double previous_goal_voxels = -100;
 
 
@@ -79,6 +87,8 @@ bool sensorConditionPath(std::vector<Node*> &path);
 double calculatePathTime(std::vector<Node*> &path, double current_yaw, double linear_velocity, double angular_velocity);
 double calculatePathObstacleDistance(std::vector<Node*> &path, voxblox::EsdfServer &voxblox_server, OcTree &tree);
 double calculatePathGain(std::vector<Node*> path, OcTree& tree);
+double calculateTotalPathObstacleDistance(std::vector<Node*> &path, voxblox::EsdfServer &voxblox_server, OcTree &tree);
+
 
 
 
@@ -118,7 +128,9 @@ void callback(const nav_msgs::OdometryConstPtr& odom, const octomap_msgs::Octoma
 			collision_node.p.x() = next_goal.x;
 			collision_node.p.y() = next_goal.y;
 			collision_node.p.z() = next_goal.z;
-			replan = true;
+			if (not no_replan){
+				replan = true;
+			}
 		}
 	}
 
@@ -197,20 +209,35 @@ void callback(const nav_msgs::OdometryConstPtr& odom, const octomap_msgs::Octoma
 		old_path = path;
 		last_goal = *(path.end()-1);	
 		// cout << "here5" <<endl;
+		auto stop_time_search = high_resolution_clock::now();
 		if (path.size() >= 3){
 			path = optimize_path(path, tree_ptr, voxblox_server_ptr, current_yaw);
 			// cout << "old path size: " << old_path.size() << endl;
 			// cout << "new path size: " << path.size() << endl;
 			// cout << "old_path last: " << old_path[old_path.size()-1]->p << endl;
 			// cout << "new_path last: " << path[old_path.size()-1]->p << endl;
-			double old_gain = calculatePathGain(old_path, *tree_ptr);
-			double new_gain = calculatePathGain(path, *tree_ptr);
-			cout << "new path gain/old path gain: " << new_gain << "/" << old_gain << " = " << new_gain/old_gain << endl;
+			// double old_gain = calculatePathGain(old_path, *tree_ptr);
+			// double new_gain = calculatePathGain(path, *tree_ptr);
+			// cout << "new path gain/old path gain: " << new_gain << "/" << old_gain << " = " << new_gain/old_gain << endl;
+			// double old_obstacle_distance = calculateTotalPathObstacleDistance(old_path, *voxblox_server_ptr, *tree_ptr);
+			// optimization_data << old_obstacle_distance;
+			// double new_obstacle_distance = calculateTotalPathObstacleDistance(path, *voxblox_server_ptr, *tree_ptr);
+			// optimization_data << " " << new_obstacle_distance;
+			// double linear_velocity = 0.3, angular_velocity = 0.8;
+			// double old_path_time = calculatePathTime(old_path, current_yaw, linear_velocity, angular_velocity);
+			// optimization_data << " " << old_path_time;
+			// double new_path_time = calculatePathTime(path, current_yaw, linear_velocity, angular_velocity);
+			// optimization_data << " " << new_path_time;
+			// double old_path_length = calculatePathLength(old_path);
+			// optimization_data << " " << old_path_length;
+			// double new_path_length = calculatePathLength(path);
+			// optimization_data << " " << new_path_length << endl;
 		}
-		auto stop_time_search = high_resolution_clock::now();
+		
 		auto duration_search = duration_cast<microseconds>(stop_time_search - start_time_search);
 		cout << "Time used for search is: " << duration_search.count()/1e6 << " Seconds" << endl;
 		total_path_length += calculatePathLength(path);
+		total_distance_to_obstacle += calculateTotalPathObstacleDistance(path, *voxblox_server_ptr, *tree_ptr);
 		total_path_segment += path.size();
 		// if (path[path.size()-1]->num_voxels < unknown_thresh){
 		// 	cout << "Exploration Terminates!!!!!!!!!!!" << endl;
@@ -218,6 +245,7 @@ void callback(const nav_msgs::OdometryConstPtr& odom, const octomap_msgs::Octoma
 		// }
 		auto stop_time = high_resolution_clock::now();
 		auto duration = duration_cast<microseconds>(stop_time - start_time);
+		replan_data <<  duration.count()/1e6 << " " << duration_search.count()/1e6 << endl;
 		cout << "Time taken by this Iteration: "
         << duration.count()/1e6 << " seconds" << endl;
         total_comp_time += duration.count()/1e6;
@@ -268,6 +296,8 @@ void callback(const nav_msgs::OdometryConstPtr& odom, const octomap_msgs::Octoma
 		
 	}
 	else if (replan){
+		auto replan_start_time = high_resolution_clock::now();
+
 		// get goal candidates
 		std::vector<Node*> goal_candidates = getGoalCandidates(roadmap);
 
@@ -280,7 +310,26 @@ void callback(const nav_msgs::OdometryConstPtr& odom, const octomap_msgs::Octoma
 		last_goal = *(path.end()-1);	
 		if (path.size() >= 3){
 			path = optimize_path(path, tree_ptr, voxblox_server_ptr, current_yaw);
+			// double old_obstacle_distance = calculateTotalPathObstacleDistance(old_path, *voxblox_server_ptr, *tree_ptr);
+			// optimization_data << old_obstacle_distance;
+			// double new_obstacle_distance = calculateTotalPathObstacleDistance(path, *voxblox_server_ptr, *tree_ptr);
+			// optimization_data << " " << new_obstacle_distance;
+			// double linear_velocity = 0.3, angular_velocity = 0.8;
+			// double old_path_time = calculatePathTime(old_path, current_yaw, linear_velocity, angular_velocity);
+			// optimization_data << " " << old_path_time;
+			// double new_path_time = calculatePathTime(path, current_yaw, linear_velocity, angular_velocity);
+			// optimization_data << " " << new_path_time;
+			// double old_path_length = calculatePathLength(old_path);
+			// optimization_data << " " << old_path_length;
+			// double new_path_length = calculatePathLength(path);
+			// optimization_data << " " << new_path_length << endl;
 		}
+		auto replan_stop_time = high_resolution_clock::now();
+		auto duration = duration_cast<microseconds>(replan_stop_time - replan_start_time);
+		// replan_data << "Replan: " << duration.count()/1e6 << endl;
+		total_comp_time += duration.count()/1e6;
+		total_path_length += calculatePathLength(path);
+		total_distance_to_obstacle += calculateTotalPathObstacleDistance(path, *voxblox_server_ptr, *tree_ptr);
 
 		path_idx = 0;
 		if (path.size() != 0){
@@ -492,8 +541,8 @@ int main(int argc, char** argv){
 	ros::NodeHandle nh;
 	ros::NodeHandle nh_private("~");
 	voxblox_server_ptr = new voxblox::EsdfServer(nh, nh_private);
-	Eigen::Vector3d p_test (0.3, 6, 1);
-	double distance = 0;
+	// Eigen::Vector3d p_test (0.3, 6, 1);
+	// double distance = 0;
 
 	// ros::Subscriber sub = n.subscribe("octomap_binary", 100, callback);
 	map_vis_pub = nh.advertise<visualization_msgs::MarkerArray>("map_vis_array", 0);
@@ -508,7 +557,9 @@ int main(int argc, char** argv){
 	Synchronizer<MySyncPolicy> sync (MySyncPolicy(100), odom_sub, map_sub);
 	sync.registerCallback(boost::bind(&callback, _1, _2));
 	ros::Rate loop_rate(10);
-	
+
+	// optimization_data.open("/home/zhefan/Desktop/Optimization_Data/tunnel/optimization_single/tunnel_opt3.txt");
+	// replan_data.open("/home/zhefan/Desktop/Replan_Data_New/DEP/replan_data1.txt");
 	while (ros::ok()){
 		map_vis_pub.publish(map_markers);	
 		goal_pub.publish(next_goal);
@@ -529,6 +580,24 @@ int main(int argc, char** argv){
 		// else{
 		// 	cout << "No Map" << endl;
 		// }
+		// Write stats:
+		// std::ofstream data;
+		// data.open("/home/zhefan/Desktop/Experiment_Stats/apartment/DEP/apartment_stats6.txt");
+		// auto stop_time_total = high_resolution_clock::now();
+		// auto total_duration = duration_cast<microseconds>(stop_time_total - start_time_total);
+		// total_time = total_duration.count()/1e6;
+		// data << "Total Exploration Time: " << total_time << endl;
+		// data << "Total Computation Time: " << total_comp_time << endl;
+		// data << "Total Path Length: " << total_path_length << endl; 
+
+		// std::ofstream optimization_data_sperate;
+		// optimization_data_sperate.open("/home/zhefan/Desktop/Optimization_Data/tunnel/non_optimization/tunnel_nonopt_data3.txt");
+		// auto stop_time_total = high_resolution_clock::now();
+		// auto total_duration = duration_cast<microseconds>(stop_time_total - start_time_total);
+		// total_time = total_duration.count()/1e6;
+		// optimization_data_sperate << "Total Exploration Time: " << total_time << endl;
+		// optimization_data_sperate << "Total Path Length: " << total_path_length << endl;
+		// optimization_data_sperate << "Total obstacle distance: " << total_distance_to_obstacle << endl;
 		ros::spinOnce();
 		loop_rate.sleep();
 	}
@@ -1302,4 +1371,37 @@ double calculatePathGain(std::vector<Node*> path, OcTree& tree){
 		total_path_gain += node_gain_yaw;
 	}
 	return total_path_gain;
+}
+
+double calculateTotalPathObstacleDistance(std::vector<Node*> &path, voxblox::EsdfServer &voxblox_server, OcTree &tree){
+	double total_distance = 0; 
+	double thresh_dist = 2;
+	int count_node = 0;
+	int path_idx = 0;
+	while (path_idx < path.size() - 1){
+		Node* this_node = path[path_idx];
+		Node* next_node = path[path_idx+1];
+		point3d p1 = this_node->p;
+		point3d p2 = next_node->p;
+		std::vector<point3d> ray;
+		tree.computeRay(p1, p2, ray);
+
+		for (point3d p: ray){
+			Eigen::Vector3d p_eigen (p.x(), p.y(), p.z());
+			double distance = 0;
+			bool success = voxblox_server.getEsdfMapPtr()->getDistanceAtPosition(p_eigen, &distance);
+
+			if (success){
+				if (distance <= thresh_dist){
+					total_distance += std::abs(distance);
+				}
+			}
+			else{
+				// cout << "error in tsdf" << endl;
+			}
+			++count_node;
+		}
+		++path_idx;
+	}
+	return total_distance;
 }

@@ -282,10 +282,10 @@ double calculateUnknown(const OcTree& tree, Node* n, double dmax){
 					count_total_unknown += 1;
 				}
 				else if (isNodeFrontier == true and isNodeSurfaceFrontier == false){
-					count_total_unknown += 2;
+					count_total_unknown += 1;
 				}
 				else if (isNodeFrontier == true and isNodeSurfaceFrontier == true){
-					count_total_unknown += 4;
+					count_total_unknown += 1;
 				}
 
 
@@ -300,10 +300,10 @@ double calculateUnknown(const OcTree& tree, Node* n, double dmax){
 							yaw_num_voxels[yaw] += 1;
 						}
 						else if (isNodeFrontier == true and isNodeSurfaceFrontier == false){
-							yaw_num_voxels[yaw] += 2;
+							yaw_num_voxels[yaw] += 1;
 						}
 						else if (isNodeFrontier == true and isNodeSurfaceFrontier == true){
-							yaw_num_voxels[yaw] += 4;
+							yaw_num_voxels[yaw] += 1;
 						}						
 					}
 				}
@@ -656,5 +656,3 @@ PRM* buildRoadMap(OcTree &tree,
 
 
 // ===================Visualization============================
-
-

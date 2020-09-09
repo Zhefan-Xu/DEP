@@ -147,6 +147,7 @@ add_executable(test_tsdf src/test_tsdf.cpp)
 add_executable(test_gurobi src/test_gurobi.cpp)
 add_executable(test_nlopt src/test_nlopt.cpp)
 add_executable(test_tsdf_optimization src/test_tsdf_optimization.cpp)
+add_executable(monitor_tree_size src/monitor_tree_size.cpp)
 ## Rename C++ executable without prefix
 ## The above recommended prefix causes long target names, the following renames the
 ## target back to the shorter version for ease of user use
@@ -176,6 +177,7 @@ target_link_libraries(test_nlopt ${catkin_LIBRARIES}
 						"/home/zhefan/Desktop/nlopt/build/libnlopt.so")
 target_link_libraries(test_tsdf_optimization ${catkin_LIBRARIES} 
 						"/home/zhefan/Desktop/nlopt/build/libnlopt.so")
+target_link_libraries(monitor_tree_size ${catkin_LIBRARIES})
 
 #############
 ## Install ##
