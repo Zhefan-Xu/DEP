@@ -7,6 +7,7 @@ The related paper can be found on:
 IEEE Robotics and Automation Letters (RA-L), 2021.**
 
 Paper Link (Preprint): https://ieeexplore.ieee.org/document/9362184.
+Video: https://youtu.be/ileyP4DRBjU
 
 # Installation
 This package has been tested on Ubuntu 16.04/18.04 LTS with ROS [Kinetic](http://wiki.ros.org/kinetic)/[Melodic](http://wiki.ros.org/melodic). Make sure you have
