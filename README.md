@@ -13,14 +13,14 @@ Video: https://youtu.be/ileyP4DRBjU
 
 ![tunnel_faster](https://user-images.githubusercontent.com/55560905/111251586-ee7b6000-85e5-11eb-8992-d834f2475b45.gif)
 
-![maze_faster](https://user-images.githubusercontent.com/55560905/111251599-f2a77d80-85e5-11eb-8da5-30b7091677c1.gif)
-<img src="https://user-images.githubusercontent.com/55560905/111249864-c2121480-85e2-11eb-8951-baac40fcd546.gif" alt="tunnel_faster" width="240" height="150"><img src="https://user-images.githubusercontent.com/55560905/111250037-09000a00-85e3-11eb-9c04-7b81c4badc74.gif" alt="maze_faster" width="240" height="150">
 
+<img src="https://user-images.githubusercontent.com/55560905/111251884-77929700-85e6-11eb-8c98-3a28ba0d06d5.gif" alt="cafe_faster" width="240" height="150"><img src="https://user-images.githubusercontent.com/55560905/111250037-09000a00-85e3-11eb-9c04-7b81c4badc74.gif" alt="maze_faster" width="240" height="150"><img src="https://user-images.githubusercontent.com/55560905/111252221-03a4be80-85e7-11eb-8fcc-cab48a055426.gif" alt="office_faster" width="240" height="150">
 
 
 # Installation
 This package has been tested on Ubuntu 16.04/18.04 LTS with ROS [Kinetic](http://wiki.ros.org/kinetic)/[Melodic](http://wiki.ros.org/melodic). Make sure you have
 installed the compatabile ROS version.
+
 
 ### Simulation Environemnts
 To run the planner in simulation, please install the [drone_gazebo](https://github.com/Zhefan-Xu/drone_gazebo), which requires [octomap_server](http://wiki.ros.org/octomap_server).
