@@ -11,6 +11,11 @@ Paper Link (Preprint): https://ieeexplore.ieee.org/document/9362184.
 
 Video: https://youtu.be/ileyP4DRBjU
 
+
+https://user-images.githubusercontent.com/55560905/111249343-f33e1500-85e1-11eb-8d86-375318f8a7a9.mp4
+
+
+
 # Installation
 This package has been tested on Ubuntu 16.04/18.04 LTS with ROS [Kinetic](http://wiki.ros.org/kinetic)/[Melodic](http://wiki.ros.org/melodic). Make sure you have
 installed the compatabile ROS version.
