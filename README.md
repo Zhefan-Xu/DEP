@@ -128,7 +128,7 @@ Let the robot(drone) get an initial scan:
 rosrun drone_gazebo cafe_warmup.sh
 ```
 
-Finally, Run the planner:
+Finally, run the planner:
 ```
 roslaunch DEP exploration.launch
 rosrun DEP move_and_rotate.py # in a seperate temrminal
