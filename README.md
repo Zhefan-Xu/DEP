@@ -69,7 +69,7 @@ wstool update
 cd ~/tsdf_ws/src/
 catkin build voxblox_ros
 ```
-Then, add ```esdf.launch``` file into the folder ```~/tsdf_ws/src/voxblox_ros/launch```, which contains the following contents: 
+Then, add ```esdf.launch``` file into the folder ```~/tsdf_ws/src/voxblox/voxblox_ros/launch```, which contains the following contents: 
 ```
 <launch>
     <node name="esdf_node" pkg="voxblox_ros" type="esdf_server" output="screen" args="-alsologtostderr" clear_params="true">
