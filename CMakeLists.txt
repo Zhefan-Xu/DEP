@@ -139,14 +139,14 @@ include_directories(
 ## With catkin_make all packages are built within a single CMake context
 ## The recommended prefix ensures that target names across packages don't collide
 # add_executable(${PROJECT_NAME}_node src/DEP_node.cpp)
-add_executable(test_kdtree_DEP src/test_kdtree_DEP.cpp)
+# add_executable(test_kdtree_DEP src/test_kdtree_DEP.cpp)
 
-add_executable(test_prm src/test_prm.cpp)
+# add_executable(test_prm src/test_prm.cpp)
 add_executable(map_vis src/map_vis.cpp)
-add_executable(test_tsdf src/test_tsdf.cpp)
-add_executable(test_gurobi src/test_gurobi.cpp)
-add_executable(test_nlopt src/test_nlopt.cpp)
-add_executable(test_tsdf_optimization src/test_tsdf_optimization.cpp)
+# add_executable(test_tsdf src/test_tsdf.cpp)
+# add_executable(test_gurobi src/test_gurobi.cpp)
+# add_executable(test_nlopt src/test_nlopt.cpp)
+# add_executable(test_tsdf_optimization src/test_tsdf_optimization.cpp)
 ## Rename C++ executable without prefix
 ## The above recommended prefix causes long target names, the following renames the
 ## target back to the shorter version for ease of user use
@@ -162,20 +162,20 @@ add_dependencies(map_vis ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_T
 # target_link_libraries(${PROJECT_NAME}_node
 #   ${catkin_LIBRARIES}
 # )
-target_link_libraries(test_kdtree_DEP ${catkin_LIBRARIES})
-target_link_libraries(test_prm ${catkin_LIBRARIES})
+# target_link_libraries(test_kdtree_DEP ${catkin_LIBRARIES})
+# target_link_libraries(test_prm ${catkin_LIBRARIES})
 target_link_libraries(map_vis ${catkin_LIBRARIES} 
 						"/home/zhefan/Desktop/nlopt/build/libnlopt.so")
-target_link_libraries(test_tsdf ${catkin_LIBRARIES} 
-                        "/opt/gurobi902/linux64/lib/libgurobi_c++.a"
-                        "/opt/gurobi902/linux64/lib/libgurobi90.so")
-target_link_libraries(test_gurobi ${catkin_LIBRARIES} 
-                        "/opt/gurobi902/linux64/lib/libgurobi_c++.a"
-                        "/opt/gurobi902/linux64/lib/libgurobi90.so")
-target_link_libraries(test_nlopt ${catkin_LIBRARIES} 
-						"/home/zhefan/Desktop/nlopt/build/libnlopt.so")
-target_link_libraries(test_tsdf_optimization ${catkin_LIBRARIES} 
-						"/home/zhefan/Desktop/nlopt/build/libnlopt.so")
+# target_link_libraries(test_tsdf ${catkin_LIBRARIES} 
+#                        "/opt/gurobi902/linux64/lib/libgurobi_c++.a"
+#                        "/opt/gurobi902/linux64/lib/libgurobi90.so")
+# target_link_libraries(test_gurobi ${catkin_LIBRARIES} 
+#                        "/opt/gurobi902/linux64/lib/libgurobi_c++.a"
+#                        "/opt/gurobi902/linux64/lib/libgurobi90.so")
+# target_link_libraries(test_nlopt ${catkin_LIBRARIES} 
+#						"/home/zhefan/Desktop/nlopt/build/libnlopt.so")
+# target_link_libraries(test_tsdf_optimization ${catkin_LIBRARIES} 
+#						"/home/zhefan/Desktop/nlopt/build/libnlopt.so")
 
 #############
 ## Install ##
