@@ -32,6 +32,9 @@ git clone https://github.com/Zhefan-Xu/drone_gazebo.git
 # Build
 cd ~/catkin_ws
 catkin_make
+
+# Add Gazebo Model Path
+export GAZEBO_MODEL_PATH=path/to/drone_gazebo/models:$GAZEBO_MODEL_PATH
 ```
 To visualize the environment, please run the script below:
 ```
