@@ -11,8 +11,11 @@ Paper Link (Preprint): https://ieeexplore.ieee.org/document/9362184.
 
 Video: https://youtu.be/ileyP4DRBjU
 
+![tunnel_faster](https://user-images.githubusercontent.com/55560905/111251586-ee7b6000-85e5-11eb-8992-d834f2475b45.gif)
 
+![maze_faster](https://user-images.githubusercontent.com/55560905/111251599-f2a77d80-85e5-11eb-8da5-30b7091677c1.gif)
 <img src="https://user-images.githubusercontent.com/55560905/111249864-c2121480-85e2-11eb-8951-baac40fcd546.gif" alt="tunnel_faster" width="475" height="300"><img src="https://user-images.githubusercontent.com/55560905/111250037-09000a00-85e3-11eb-9c04-7b81c4badc74.gif" alt="maze_faster" width="475" height="300">
+
 
 
 # Installation
