@@ -125,7 +125,7 @@ catkin_make
 # How to Use
 First, launch the simulation environment (E.g. Cafe). You need to turn on the pannel for visualization in [Rviz](http://wiki.ros.org/rviz).
 ```
-roslaunch drone_gazebo cafe
+roslaunch drone_gazebo cafe.launch
 roslaunch voxblox_ros esdf.launch # in a seperate terminal
 ```
 
