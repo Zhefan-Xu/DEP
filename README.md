@@ -12,7 +12,9 @@ Paper Link (Preprint): https://ieeexplore.ieee.org/document/9362184.
 Video: https://youtu.be/ileyP4DRBjU
 
 
-https://user-images.githubusercontent.com/55560905/111249343-f33e1500-85e1-11eb-8d86-375318f8a7a9.mp4
+![tunnel_faster](https://user-images.githubusercontent.com/55560905/111249864-c2121480-85e2-11eb-8951-baac40fcd546.gif) ![maze_faster](https://user-images.githubusercontent.com/55560905/111250037-09000a00-85e3-11eb-9c04-7b81c4badc74.gif)
+
+
 
 
 
