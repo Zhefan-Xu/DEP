@@ -118,8 +118,10 @@ TO DO THAT, simply **DELETE** the **build** and **devel** folder in your ```~/ca
 
 Finally, compile the planner:
 ```
+source ~/tsdf_ws/devel/setup.bash
 cd ~/catkin_ws
 catkin_make
+source ~/catkin_ws/devel/setup.bash
 ```
 
 # How to Use
