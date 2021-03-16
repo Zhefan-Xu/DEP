@@ -56,6 +56,24 @@ wstool update
 cd ~/tsdf_ws/src/
 catkin build voxblox_ros
 ```
+Then, add ```esdf.launch``` file into the folder ```~/tsdf_ws/src/voxblox_ros/launch```, which contains the following contents: 
+```
+<launch>
+    <node name="esdf_node" pkg="voxblox_ros" type="esdf_server" output="screen" args="-alsologtostderr" clear_params="true">
+      <remap from="pointcloud" to="/camera/depth/points"/>
+      <remap from="esdf_node/esdf_map_out" to="esdf_map" />
+      <param name="tsdf_voxel_size" value="0.2" />
+      <param name="tsdf_voxels_per_side" value="16" />
+      <param name="publish_esdf_map" value="true" />
+      <param name="publish_pointclouds" value="true" />
+      <param name="use_tf_transforms" value="true" />
+      <param name="update_mesh_every_n_sec" value="1.0" />
+      <param name="clear_sphere_for_planning" value="true" />
+      <param name="world_frame" value="world" />
+      <param name="sensor_frame" value="camera_link"/>
+    </node>
+</launch>
+```
 
 Install [nlopt](https://nlopt.readthedocs.io/en/latest/). First, download the latest file (lastest_version.tar.gz) at: https://nlopt.readthedocs.io/en/latest/#download-and-installation. Then unzip the file into **nlopt** folder.
 ```
@@ -86,5 +104,23 @@ Finally, compile the planner:
 ```
 cd ~/catkin_ws
 catkin_make
+```
+
+# How to Use
+First, launch the simulation environment (E.g. Cafe). You need to turn on the pannel for visualization in [Rviz](http://wiki.ros.org/rviz).
+```
+roslaunch drone_gazebo cafe
+roslaunch voxblox_ros esdf.launch # in a seperate terminal
+```
+
+Let the robot(drone) get an initial scan:
+```
+rosrun drone_gazebo cafe_warmup.sh
+```
+
+Finally, Run the planner:
+```
+roslaunch DEP exploration.launch
+rosrun DEP move_and_rotate.py # in a seperate temrminal
 ```
 
