@@ -45,12 +45,12 @@ roslaunch drone_gazebo cafe.launch
 ### Planner
 This package relies on [octomap_ros](http://wiki.ros.org/octomap), [voxblox_ros](https://voxblox.readthedocs.io/en/latest/pages/Installation.html), and [nlopt](https://nlopt.readthedocs.io/en/latest/).
 
-Install [octomap_ros](http://wiki.ros.org/octomap)
+Install [octomap_ros](http://wiki.ros.org/octomap).
 ```
 # Install octomap_ros
 sudo apt-get install ros-kinetic-octomap-ros
 ```
-Install [voxblox_ros](https://voxblox.readthedocs.io/en/latest/pages/Installation.html) (Modified based on the original installation instruction)
+Install [voxblox_ros](https://voxblox.readthedocs.io/en/latest/pages/Installation.html) (Modified based on the original installation instruction).
 ```
 # Install voxblox_ros (Modified based on the original installation instruction)
 mkdir -p ~/tsdf_ws/src
