@@ -95,6 +95,9 @@ mkdir build
 cd build
 cmake ..
 make
+
+cd path/to/nlopt
+sudo make install
 ```
 
 After installing all the required packages, we can compile our planner:
