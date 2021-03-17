@@ -1,6 +1,6 @@
 # Dynamic Exploration Planner (DEP) for Robot Exploration
 This repo contains the implementation of Dynamic Environment Planner (DEP) which aims at robotic exploration in dynamic and unknown environments in 
-[ROS](https://www.ros.org/) and [Gazebo](http://gazebosim.org/).
+[ROS](https://www.ros.org/) and [Gazebo](http://gazebosim.org/). This work belongs to CMU Computational Engineering & Robotics Lab (CERLAB).
 
 The related paper can be found on: 
 
@@ -144,7 +144,14 @@ rosrun DEP move_and_rotate.py # in a seperate temrminal
 
 # Visualization
 To visualize the exploration process, belows are the ros topics you need to add in [Rviz](http://wiki.ros.org/rviz):
+
 ```voxblox_mesh```: The ESDF map generated from voxblox_ros.
+
 ```occupied_vis_array``` (Optional): The voxel map generated from octomap_server.
+
 ```map_vis_array```: This is the incremental PRM mentioned in the paper.
+
 ```path_vis_array```: The generated path from the DEP planner.
+
+# Restricting the Exploration Range
+Sometimes, you may want to explore a confined space (defined by a cubic). In order to achieve that, simply modify the ```include/env.h``` file to change the corresponding dimension of the desired space.
