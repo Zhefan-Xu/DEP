@@ -142,3 +142,9 @@ roslaunch DEP exploration.launch
 rosrun DEP move_and_rotate.py # in a seperate temrminal
 ```
 
+# Visualization
+To visualize the exploration process, belows are the ros topics you need to add in [Rviz](http://wiki.ros.org/rviz):
+```voxblox_mesh```: The ESDF map generated from voxblox_ros.
+```occupied_vis_array``` (Optional): The voxel map generated from octomap_server.
+```map_vis_array```: This is the incremental PRM mentioned in the paper.
+```path_vis_array```: The generated path from the DEP planner.
