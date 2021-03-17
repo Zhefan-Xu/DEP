@@ -145,13 +145,26 @@ rosrun DEP move_and_rotate.py # in a seperate temrminal
 # Visualization
 To visualize the exploration process, belows are the ros topics you need to add in [Rviz](http://wiki.ros.org/rviz):
 
-```voxblox_mesh```: The ESDF map generated from voxblox_ros.
+```/voxblox_mesh```: The ESDF map generated from voxblox_ros.
 
-```occupied_vis_array``` (Optional): The voxel map generated from octomap_server.
+```/occupied_vis_array``` (Optional): The voxel map generated from octomap_server.
 
-```map_vis_array```: This is the incremental PRM mentioned in the paper.
+```/map_vis_array```: This is the incremental PRM mentioned in the paper.
 
-```path_vis_array```: The generated path from the DEP planner.
+```/path_vis_array```: The generated path from the DEP planner.
 
 # Restricting the Exploration Range
 Sometimes, you may want to explore a confined space (defined by a cubic). In order to achieve that, simply modify the ```include/env.h``` file to change the corresponding dimension of the desired space.
+
+# Citation and Reference:
+If you find this work useful, please cite the paper:
+```
+@article{xu2021autonomous,
+  title={Autonomous UAV Exploration of Dynamic Environments via Incremental Sampling and Probabilistic Roadmap},
+  author={Xu, Zhefan and Deng, Di and Shimada, Kenji},
+  journal={IEEE Robotics and Automation Letters},
+  year={2021},
+  publisher={IEEE}
+}
+
+```
