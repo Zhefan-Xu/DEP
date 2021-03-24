@@ -96,7 +96,7 @@ cd build
 cmake ..
 make
 
-cd path/to/nlopt
+cd path/to/nlopt/build
 sudo make install
 ```
 
