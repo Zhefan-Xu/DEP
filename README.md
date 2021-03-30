@@ -154,7 +154,7 @@ To visualize the exploration process, belows are the ros topics you need to add 
 ```/path_vis_array```: The generated path from the DEP planner.
 
 # Restricting the Exploration Range
-Sometimes, you may want to explore a confined space (defined by a cubic). In order to achieve that, simply modify the ```include/env.h``` file to change the corresponding dimension of the desired space.
+Sometimes, you may want to explore a confined space (defined by a cubic). In order to achieve that, simply modify the ```include/env.h``` file to change the corresponding dimension of the desired space and then run ```catkin_make``` in ```~/catkin_ws```.
 
 # Citation and Reference:
 If you find this work useful, please cite the paper:
