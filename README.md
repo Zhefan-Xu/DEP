@@ -7,7 +7,7 @@ The related paper can be found on:
 **Zhefan Xu, Di Deng, and Kenji Shimada, “Autonomous UAV Exploration of Dynamic Environments via Incremental Sampling and Probabilistic Roadmap,” 
 IEEE Robotics and Automation Letters (RA-L), 2021.**
 
-Paper Link (Preprint): https://ieeexplore.ieee.org/document/9362184.
+Paper Link: https://ieeexplore.ieee.org/document/9362184.
 
 Video: https://youtu.be/ileyP4DRBjU
 
