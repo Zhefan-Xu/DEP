@@ -14,7 +14,7 @@ Video: https://youtu.be/ileyP4DRBjU
 ![tunnel_faster](https://user-images.githubusercontent.com/55560905/111251586-ee7b6000-85e5-11eb-8992-d834f2475b45.gif)
 
 
-<img src="https://user-images.githubusercontent.com/55560905/111251884-77929700-85e6-11eb-8c98-3a28ba0d06d5.gif" alt="cafe_faster" width="278" height="180"><img src="https://user-images.githubusercontent.com/55560905/111250037-09000a00-85e3-11eb-9c04-7b81c4badc74.gif" alt="maze_faster" width="278" height="180"><img src="https://user-images.githubusercontent.com/55560905/111252221-03a4be80-85e7-11eb-8fcc-cab48a055426.gif" alt="office_faster" width="278" height="180">
+<img src="https://user-images.githubusercontent.com/55560905/111251884-77929700-85e6-11eb-8c98-3a28ba0d06d5.gif" alt="cafe_faster" width="278" height="180"><img src="https://user-images.githubusercontent.com/55560905/111250037-09000a00-85e3-11eb-9c04-7b81c4badc74.gif" alt="maze_faster" width="270" height="180"><img src="https://user-images.githubusercontent.com/55560905/111252221-03a4be80-85e7-11eb-8fcc-cab48a055426.gif" alt="office_faster" width="278" height="180">
 
 
 # Installation
