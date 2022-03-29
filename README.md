@@ -1,4 +1,7 @@
 # Dynamic Exploration Planner (DEP) for Robot Exploration
+
+03/29 Update: The author will reimplement this algorithm in a cleaner and more structured way in the near future.
+
 This repo contains the implementation of Dynamic Environment Planner (DEP) which aims at robotic exploration in dynamic and unknown environments in 
 [ROS](https://www.ros.org/) and [Gazebo](http://gazebosim.org/). This work belongs to CMU Computational Engineering & Robotics Lab (CERLAB).
 
