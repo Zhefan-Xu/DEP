@@ -5,8 +5,7 @@ This repo contains the implementation of Dynamic Environment Planner (DEP) which
 
 The related paper can be found on: 
 
-**Zhefan Xu, Di Deng, and Kenji Shimada, “Autonomous UAV Exploration of Dynamic Environments via Incremental Sampling and Probabilistic Roadmap,” 
-IEEE Robotics and Automation Letters (RA-L), 2021.**
+**Zhefan Xu, Di Deng, and Kenji Shimada, “Autonomous UAV Exploration of Dynamic Environments via Incremental Sampling and Probabilistic Roadmap”, IEEE Robotics and Automation Letters (RA-L), 2021.**
 
 Paper Link: https://ieeexplore.ieee.org/document/9362184.
 
@@ -159,6 +158,8 @@ Sometimes, you may want to explore a confined space (defined by a cubic). In ord
 
 # Citation and Reference:
 If you find this work useful, please cite the paper:
+
+
 ```
 @article{xu2021autonomous,
   title={Autonomous UAV Exploration of Dynamic Environments via Incremental Sampling and Probabilistic Roadmap},
